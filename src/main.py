@@ -3,6 +3,7 @@ import gym_chess
 import chess
 import chess.engine
 import numpy as np
+from math import floor
 from keras.models import load_model
 from pandas.core.common import flatten
 
@@ -64,13 +65,14 @@ def main():
 	j = 0
 	while not done:
 		state = reform_state(state)
+		env.render()
 		print(model.predict(state))
-		action = round(model.predict(state)[0][0] *  len(env.possible_actions))
+		action = env.possible_actions[floor(model.predict(state)[0][0] * len(env.possible_actions))]
 		next_state, reward, done, info = env.step(action)
 		state = next_state
 		j += 1
-
-		if j > 100: break
+		print(j)
+		if j > 1000: break
 
 if __name__ == '__main__':
 	main()

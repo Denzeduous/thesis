@@ -2,6 +2,7 @@ import time
 import gym
 import gym_chess
 import numpy as np
+from math import floor
 from lib.qlearn import QLearnAgent
 from rl.agents import DQNAgent
 from rl.policy import BoltzmannQPolicy
@@ -12,11 +13,11 @@ from keras.layers import Activation, Dense, Dropout, Flatten
 from keras.optimizers import adam_v2 as Adam
 from keras.losses import SparseCategoricalCrossentropy
 
-EPISODES = 500
+EPISODES = 10_000
 EPISODE_TIME = np.zeros(EPISODES)
 REWARDS = [[] for x in range(EPISODES)]
 
-def build_cnn(states):
+def build_dnn(states):
 	model = Sequential()
 	model.add(Flatten(input_shape=(1, states)))
 	model.add(Dense(64,  activation='relu'))
@@ -32,7 +33,7 @@ def build_cnn(states):
 	model.add(Dense(64,  activation='relu'))
 	model.add(Dense(1, activation='sigmoid'))
 	model.compile(optimizer='adam',
-	              loss='categorical_crossentropy',
+	              loss='mean_squared_error',
 	              metrics=['accuracy'])
 	
 	return model
@@ -40,13 +41,13 @@ def build_cnn(states):
 def build_agent(model, states, actions):
 	return QLearnAgent(model, 'ChessCNN', states, actions)
 
-def train_cnn():
+def train_dnn():
 	env = gym.make('ChessVsSelf-v2', log=False)
 
 	states = 71 # 71 possible states from a flattened env state. Has to be hard-coded, unfortunately
 	actions = env.action_space.n
 
-	model = build_cnn(states, actions)
+	model = build_dnn(states)
 	agent = build_agent(model, states, actions)
 
 	train_start_time = time.time()
@@ -59,19 +60,24 @@ def train_cnn():
 		done = False
 		j = 0
 
-		while not done:
-			action = round(agent.step(state) * len(env.possible_actions))
-			next_state, reward, done, info = env.step(action)
+		try:
+			while not done:
+				action = floor(agent.step(env, state) * len(env.possible_actions))
+				action = env.possible_actions[action]
+				next_state, reward, done, info = env.step(action)
+				REWARDS[i].append(reward)
+
+				agent.remember(state, action, reward, next_state, done)
+				state = next_state
+				j += 1
+
+				if j > 100: break
+
+			agent.replay(32)
 			
-			REWARDS[i].append(reward)
-
-			agent.remember(state, action, reward, next_state, done)
-			state = next_state
-			j += 1
-
-			if j > 100: break
-
-		agent.replay(32)
+		except Exception as e:
+			print('An error occurred. Continuing training and not replaying.')
+			print(e)
 
 		# Calculate time remaining for training.
 		end_time = time.time()
@@ -97,4 +103,4 @@ def train_cnn():
 		f.write(str(REWARDS))
 
 if __name__ == '__main__':
-	train_cnn()
+	train_dnn()
