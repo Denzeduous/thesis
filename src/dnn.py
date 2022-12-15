@@ -14,7 +14,7 @@ from keras.layers import Activation, Dense, Dropout, Flatten, Softmax
 from keras.optimizers import adam_v2 as Adam
 from keras.losses import SparseCategoricalCrossentropy
 
-EPISODES = 5000
+EPISODES = 1000
 EPISODE_TIME = np.zeros(EPISODES)
 REWARDS = [[] for x in range(EPISODES)]
 
