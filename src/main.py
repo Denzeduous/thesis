@@ -66,9 +66,19 @@ def main():
 	while not done:
 		state = reform_state(state)
 		env.render()
-		print(model.predict(state))
-		action = env.possible_actions[floor(model.predict(state)[0][0] * len(env.possible_actions))]
-		next_state, reward, done, info = env.step(action)
+
+		actions = np.argsort(model.predict(state)[0])[::-1]
+		
+		next_state = None
+
+		for action in actions:
+			try:
+				next_state, reward, done, info = env.step(action)
+
+				if info['move_count'] != j: break
+
+			except: pass
+
 		state = next_state
 		j += 1
 		print(j)

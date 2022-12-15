@@ -1,3 +1,4 @@
+import math
 import time
 import gym
 import gym_chess
@@ -9,46 +10,41 @@ from rl.policy import BoltzmannQPolicy
 from rl.memory import SequentialMemory
 from rl.callbacks import ModelIntervalCheckpoint, FileLogger
 from keras import Sequential
-from keras.layers import Activation, Dense, Dropout, Flatten
+from keras.layers import Activation, Dense, Dropout, Flatten, Softmax
 from keras.optimizers import adam_v2 as Adam
 from keras.losses import SparseCategoricalCrossentropy
 
-EPISODES = 10_000
+EPISODES = 5000
 EPISODE_TIME = np.zeros(EPISODES)
 REWARDS = [[] for x in range(EPISODES)]
 
-def build_dnn(states):
+def build_dnn(states, actions):
 	model = Sequential()
 	model.add(Flatten(input_shape=(1, states)))
-	model.add(Dense(64,  activation='relu'))
-	model.add(Dropout(0.25))
-	model.add(Dense(64,  activation='relu'))
-	model.add(Dropout(0.25))
-	model.add(Dense(128, activation='relu'))
-	model.add(Dropout(0.25))
-	model.add(Dense(128, activation='relu'))
-	model.add(Dropout(0.25))
-	model.add(Dense(64,  activation='relu'))
-	model.add(Dropout(0.25))
-	model.add(Dense(64,  activation='relu'))
-	model.add(Dense(1, activation='sigmoid'))
+	model.add(Dense(64,  activation='tanh'))
+	#model.add(Dropout(0.25))
+	model.add(Dense(64,  activation='tanh'))
+	#model.add(Dropout(0.25))
+	model.add(Dense(64,  activation='tanh'))
+	model.add(Dense(actions))
 	model.compile(optimizer='adam',
-	              loss='mean_squared_error',
+	              loss='categorical_crossentropy',
 	              metrics=['accuracy'])
 	
 	return model
 
-def build_agent(model, states, actions):
-	return QLearnAgent(model, 'ChessCNN', states, actions)
+def build_agent(model, states, actions, env):
+	return QLearnAgent(model, 'ChessCNN', env, states)#, actions)
 
 def train_dnn():
+	global REWARDS
 	env = gym.make('ChessVsSelf-v2', log=False)
 
 	states = 71 # 71 possible states from a flattened env state. Has to be hard-coded, unfortunately
 	actions = env.action_space.n
 
-	model = build_dnn(states)
-	agent = build_agent(model, states, actions)
+	model = build_dnn(states, actions)
+	agent = build_agent(model, states, actions, env)
 
 	train_start_time = time.time()
 
@@ -60,24 +56,29 @@ def train_dnn():
 		done = False
 		j = 0
 
-		try:
-			while not done:
-				action = floor(agent.step(env, state) * len(env.possible_actions))
-				action = env.possible_actions[action]
-				next_state, reward, done, info = env.step(action)
-				REWARDS[i].append(reward)
+		#try:
+		while not done:
+			action = agent.step(env, state)
 
-				agent.remember(state, action, reward, next_state, done)
-				state = next_state
-				j += 1
+			next_state = None
+			reward = None
+			done = None
 
-				if j > 100: break
+			next_state, reward, done, info = env.step(action)
 
-			agent.replay(32)
-			
-		except Exception as e:
-			print('An error occurred. Continuing training and not replaying.')
-			print(e)
+			REWARDS[i].append(reward)
+
+			agent.remember(state, action, reward, next_state, done)
+			state = next_state
+			j += 1
+
+			if j > 100: break
+
+		agent.replay(100)
+
+		# except Exception as e:
+		# 	print('An error occurred. Continuing training and not replaying.')
+		# 	print(e)
 
 		# Calculate time remaining for training.
 		end_time = time.time()
