@@ -1,0 +1,248 @@
+TensorFlow 2.0 Upgrade Script
+-----------------------------
+Converted 13 files
+Detected 5 issues that require attention
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+File: .\dnc_ref\dense_layer.py
+--------------------------------------------------------------------------------
+.\dnc_ref\dense_layer.py:21:31: WARNING: tf.get_variable requires manual check. tf.get_variable returns ResourceVariables by default in 2.0, which have well-defined semantics and are stricter about shapes. You can disable this behavior by passing use_resource=False, or by calling tf.compat.v1.disable_resource_variables().
+.\dnc_ref\dense_layer.py:25:34: WARNING: tf.get_variable requires manual check. tf.get_variable returns ResourceVariables by default in 2.0, which have well-defined semantics and are stricter about shapes. You can disable this behavior by passing use_resource=False, or by calling tf.compat.v1.disable_resource_variables().
+--------------------------------------------------------------------------------
+File: .\dnc_ref\repeat_copy_data.py
+--------------------------------------------------------------------------------
+.\dnc_ref\repeat_copy_data.py:111:40: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+.\dnc_ref\repeat_copy_data.py:115:42: WARNING: Changing dataset.make_initializable_iterator() to tf.compat.v1.data.make_initializable_iterator(dataset). Please check this transformation.
+
+.\dnc_ref\repeat_copy_data.py:120:37: WARNING: Changing dataset.make_initializable_iterator() to tf.compat.v1.data.make_initializable_iterator(dataset). Please check this transformation.
+
+================================================================================
+Detailed log follows:
+
+================================================================================
+================================================================================
+Input tree: '.\\dnc_ref\\'
+================================================================================
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\average_tracking.py'
+ outputting to 'dnc\\average_tracking.py'
+--------------------------------------------------------------------------------
+
+2:0: INFO: Renamed 'tf.disable_v2_behavior' to 'tf.compat.v1.disable_v2_behavior'
+17:22: INFO: Renamed 'tf.assign' to 'tf.compat.v1.assign'
+17:56: INFO: Renamed 'tf.assign' to 'tf.compat.v1.assign'
+18:4: INFO: Renamed 'tf.add_to_collection' to 'tf.compat.v1.add_to_collection'
+21:22: INFO: Renamed 'tf.assign' to 'tf.compat.v1.assign'
+23:26: INFO: Renamed 'tf.assign' to 'tf.compat.v1.assign'
+23:49: INFO: Renamed 'tf.assign' to 'tf.compat.v1.assign'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\controller.py'
+ outputting to 'dnc\\controller.py'
+--------------------------------------------------------------------------------
+
+4:0: INFO: Renamed 'tf.disable_v2_behavior' to 'tf.compat.v1.disable_v2_behavior'
+13:20: INFO: Renamed 'tf.nn.rnn_cell.RNNCell' to 'tf.compat.v1.nn.rnn_cell.RNNCell'
+26:13: INFO: Renamed 'tf.variable_scope' to 'tf.compat.v1.variable_scope'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\dense_layer.py'
+ outputting to 'dnc\\dense_layer.py'
+--------------------------------------------------------------------------------
+
+2:0: INFO: Renamed 'tf.disable_v2_behavior' to 'tf.compat.v1.disable_v2_behavior'
+16:13: INFO: Renamed 'tf.variable_scope' to 'tf.compat.v1.variable_scope'
+18:25: INFO: Added keywords to args of function 'tf.shape'
+21:31: WARNING: tf.get_variable requires manual check. tf.get_variable returns ResourceVariables by default in 2.0, which have well-defined semantics and are stricter about shapes. You can disable this behavior by passing use_resource=False, or by calling tf.compat.v1.disable_resource_variables().
+21:31: INFO: Renamed 'tf.get_variable' to 'tf.compat.v1.get_variable'
+25:34: WARNING: tf.get_variable requires manual check. tf.get_variable returns ResourceVariables by default in 2.0, which have well-defined semantics and are stricter about shapes. You can disable this behavior by passing use_resource=False, or by calling tf.compat.v1.disable_resource_variables().
+25:34: INFO: Renamed 'tf.get_variable' to 'tf.compat.v1.get_variable'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\dnc.py'
+ outputting to 'dnc\\dnc.py'
+--------------------------------------------------------------------------------
+
+ERROR: Failed to parse.
+Traceback (most recent call last):
+  File "C:\Users\djama\AppData\Local\Programs\Python\Python39\lib\site-packages\tensorflow\tools\compatibility\ast_edits.py", line 933, in update_string_pasta
+    t = pasta.parse(text)
+  File "C:\Users\djama\AppData\Local\Programs\Python\Python39\lib\site-packages\pasta\__init__.py", line 23, in parse
+    t = ast_utils.parse(src)
+  File "C:\Users\djama\AppData\Local\Programs\Python\Python39\lib\site-packages\pasta\base\ast_utils.py", line 56, in parse
+    tree = ast.parse(sanitize_source(src))
+  File "C:\Users\djama\AppData\Local\Programs\Python\Python39\lib\ast.py", line 50, in parse
+    return compile(source, filename, mode, flags,
+  File "<unknown>", line 11
+    	def build(self, input_shape)
+    	                            ^
+SyntaxError: invalid syntax
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\dnc_cell.py'
+ outputting to 'dnc\\dnc_cell.py'
+--------------------------------------------------------------------------------
+
+3:0: INFO: Renamed 'tf.disable_v2_behavior' to 'tf.compat.v1.disable_v2_behavior'
+18:14: INFO: Renamed 'tf.nn.rnn_cell.RNNCell' to 'tf.compat.v1.nn.rnn_cell.RNNCell'
+54:13: INFO: Renamed 'tf.variable_scope' to 'tf.compat.v1.variable_scope'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\DNC_test.py'
+ outputting to 'dnc\\DNC_test.py'
+--------------------------------------------------------------------------------
+
+21:0: INFO: Renamed 'tf.disable_v2_behavior' to 'tf.compat.v1.disable_v2_behavior'
+56:12: INFO: Added keywords to args of function 'tf.argmax'
+61:9: INFO: Renamed 'tf.variable_scope' to 'tf.compat.v1.variable_scope'
+67:15: INFO: Added keywords to args of function 'tf.reduce_mean'
+71:9: INFO: Renamed 'tf.variable_scope' to 'tf.compat.v1.variable_scope'
+72:12: INFO: Renamed 'tf.train.RMSPropOptimizer' to 'tf.compat.v1.train.RMSPropOptimizer'
+74:49: INFO: Renamed 'tf.trainable_variables' to 'tf.compat.v1.trainable_variables'
+124:17: INFO: Renamed 'tf.get_collection' to 'tf.compat.v1.get_collection'
+151:21: INFO: Renamed 'tf.get_collection' to 'tf.compat.v1.get_collection'
+195:44: INFO: Renamed 'tf.trainable_variables' to 'tf.compat.v1.trainable_variables'
+198:13: INFO: Renamed 'tf.Session' to 'tf.compat.v1.Session'
+201:22: INFO: Renamed 'tf.global_variables_initializer' to 'tf.compat.v1.global_variables_initializer'
+201:57: INFO: Renamed 'tf.tables_initializer' to 'tf.compat.v1.tables_initializer'
+246:25: INFO: Renamed 'tf.get_collection' to 'tf.compat.v1.get_collection'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\dnc_utils.py'
+ outputting to 'dnc\\dnc_utils.py'
+--------------------------------------------------------------------------------
+
+13:9: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+13:9: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+14:13: INFO: Renamed 'tf.cumprod' to 'tf.math.cumprod'
+15:15: INFO: Added keywords to args of function 'tf.shape'
+24:9: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+24:9: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+27:23: INFO: Added keywords to args of function 'tf.shape'
+28:24: INFO: Added keywords to args of function 'tf.shape'
+34:15: INFO: Renamed 'tf.invert_permutation' to 'tf.math.invert_permutation'
+40:9: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+40:9: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+42:15: INFO: Added keywords to args of function 'tf.shape'
+69:9: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+69:9: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+75:9: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+75:9: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+96:23: INFO: Added keywords to args of function 'tf.shape'
+97:18: INFO: Added keywords to args of function 'tf.shape'
+124:19: INFO: Added keywords to args of function 'tf.shape'
+125:20: INFO: Added keywords to args of function 'tf.reduce_prod'
+158:20: INFO: Added keywords to args of function 'tf.reduce_sum'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\freeness.py'
+ outputting to 'dnc\\freeness.py'
+--------------------------------------------------------------------------------
+
+72:13: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+72:13: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+94:13: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+94:13: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+109:13: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+109:13: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+127:13: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+127:13: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+134:32: INFO: Renamed 'tf.cumprod' to 'tf.math.cumprod'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\memory_access.py'
+ outputting to 'dnc\\memory_access.py'
+--------------------------------------------------------------------------------
+
+10:0: INFO: Renamed 'tf.disable_v2_behavior' to 'tf.compat.v1.disable_v2_behavior'
+229:13: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+229:13: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+264:13: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+264:13: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+277:68: INFO: Added keywords to args of function 'tf.reduce_sum'
+278:16: INFO: Added keywords to args of function 'tf.reduce_sum'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\repeat_copy_data.py'
+ outputting to 'dnc\\repeat_copy_data.py'
+--------------------------------------------------------------------------------
+
+15:0: INFO: Renamed 'tf.disable_v2_behavior' to 'tf.compat.v1.disable_v2_behavior'
+30:29: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+39:32: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+48:27: INFO: Renamed 'tf.random_uniform' to 'tf.random.uniform'
+79:40: INFO: Added keywords to args of function 'tf.shape'
+106:29: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+109:15: INFO: Renamed 'tf.data.Iterator' to 'tf.compat.v1.data.Iterator'
+111:40: WARNING: Changing dataset.make_one_shot_iterator() to tf.compat.v1.data.make_one_shot_iterator(dataset). Please check this transformation.
+
+115:42: WARNING: Changing dataset.make_initializable_iterator() to tf.compat.v1.data.make_initializable_iterator(dataset). Please check this transformation.
+
+120:37: WARNING: Changing dataset.make_initializable_iterator() to tf.compat.v1.data.make_initializable_iterator(dataset). Please check this transformation.
+
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\rnn.py'
+ outputting to 'dnc\\rnn.py'
+--------------------------------------------------------------------------------
+
+10:0: INFO: Renamed 'tf.disable_v2_behavior' to 'tf.compat.v1.disable_v2_behavior'
+13:21: INFO: Added keywords to args of function 'tf.shape'
+32:25: INFO: Added keywords to args of function 'tf.cond'
+32:33: INFO: Added keywords to args of function 'tf.reduce_all'
+36:48: INFO: Renamed 'tf.nn.raw_rnn' to 'tf.compat.v1.nn.raw_rnn'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\temporal_linkage.py'
+ outputting to 'dnc\\temporal_linkage.py'
+--------------------------------------------------------------------------------
+
+3:0: INFO: Renamed 'tf.disable_v2_behavior' to 'tf.compat.v1.disable_v2_behavior'
+69:13: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+69:13: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+76:19: INFO: Added keywords to args of function 'tf.transpose'
+93:13: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+93:13: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+94:25: INFO: Added keywords to args of function 'tf.shape'
+102:19: INFO: Renamed 'tf.matrix_set_diag' to 'tf.linalg.set_diag'
+116:13: INFO: `name` passed to `name_scope`. Because you may be re-entering an existing scope, it is not safe to convert automatically,  the v2 name_scope does not support re-entering scopes by name.
+
+116:13: INFO: Renamed 'tf.name_scope' to 'tf.compat.v1.name_scope'
+117:24: INFO: Added keywords to args of function 'tf.reduce_sum'
+--------------------------------------------------------------------------------
+
+--------------------------------------------------------------------------------
+Processing file '.\\dnc_ref\\visualization.py'
+ outputting to 'dnc\\visualization.py'
+--------------------------------------------------------------------------------
+
+4:0: INFO: Renamed 'tf.disable_v2_behavior' to 'tf.compat.v1.disable_v2_behavior'
+49:11: INFO: Added keywords to args of function 'tf.transpose'
+--------------------------------------------------------------------------------
+
