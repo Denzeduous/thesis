@@ -1,13 +1,19 @@
-import gym
-import gym_chess
+import gymnasium as gym
+import lib.gymchess
 import chess
 import chess.engine
 import numpy as np
+import random
+import os
 from math import floor
+from keras.layers import Softmax
 from keras.models import load_model
+from tensorflow.keras.utils import plot_model
 from pandas.core.common import flatten
+from lib.dnn import DNNChessAgent
 
 ANALYSIS_DEPTH = 20
+RANDOMNESS = 0.25
 
 # The code here is entirely unused for now except for the `main` (for testing)
 
@@ -42,47 +48,73 @@ def split_per_piece(board):
 			piece_idx += 1
 
 def reform_state(state):
+	'''
+		Reforms the state into a flattened 1D array.
+		
+		The `isinstance` calls within are to make sure
+		that it hasn't been called before on the same state.
+	'''
 	if isinstance(state, np.ndarray):
-		return state.reshape(1, 1, 71)
+		return state.reshape(1, 1, 65)
+
+	if isinstance(state, tuple):
+		state = state[0] # No idea why this happens tbh
 
 	if not isinstance(state['board'], np.ndarray):
 		state['board'] = np.concatenate(state['board'])
 	
-	if not isinstance(state['current_player'], int):
-		state['current_player'] = 0 if state['current_player'] == 'WHITE' else 1
+	if not isinstance(state['player'], int):
+		state['player'] = 0 if state['player'] == 'White' else 1
 	
-	return np.array(list(flatten(state.values()))).reshape(1, 1, 71)
+	return np.array(list(flatten(state.values()))).reshape(1, 1, 65)
 
 def main():
 	'''
 		Temporary testing.
 	'''
-	env = gym.make('ChessVsSelf-v2', log=False)
+	env = gym.make('ChessVsSelf-v0', render_mode='image')
 	model = load_model('ChessCNN.h5')
+	agent = DNNChessAgent(model, env)
 
 	state = env.reset()
-	done = False
-	j = 0
-	while not done:
-		state = reform_state(state)
-		env.render()
 
-		actions = np.argsort(model.predict(state)[0])[::-1]
+	terminated = False
+	last_turn_2 = -1
+	last_turn_1 = -1
+
+	dnn_dir = os.path.join('episodes', 'dnn')
+
+	if not os.path.exists(dnn_dir):
+		os.makedirs(dnn_dir)
+	else:
+		for filename in os.listdir(dnn_dir):
+			file = os.path.join(dnn_dir, filename)
+
+			if os.path.isfile(file):
+				os.unlink(file)
+			else:
+				shutil.rmtree(file)
+
+	while not bool(terminated):
+		state = reform_state(state)
+
+		move = agent.get_move(state)
 		
 		next_state = None
 
-		for action in actions:
-			try:
-				next_state, reward, done, info = env.step(action)
+		# 	except: pass
+		next_state, reward, terminated, truncated, info = env.step(move)
 
-				if info['move_count'] != j: break
-
-			except: pass
-
+		print(terminated)
+		print(info)
+		env.render()
+		plot_model(model, show_shapes=True, show_layer_activations=True)
 		state = next_state
-		j += 1
-		print(j)
-		if j > 1000: break
+
+		last_turn_2 = last_turn_1
+		last_turn_1 = len(info['board'].move_stack)
+		
+	env.render()
 
 if __name__ == '__main__':
 	main()
