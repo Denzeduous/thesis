@@ -72,8 +72,8 @@ def main():
 	'''
 		Temporary testing.
 	'''
-	env = gym.make('ChessVsSelf-v0', render_mode='image')
-	model = load_model('ChessCNN.h5')
+	env = gym.make('ChessVsSelf-v0', render_mode='image-cl')
+	model = load_model('ChessDNN.h5')
 	agent = DNNChessAgent(model, env)
 
 	state = env.reset()

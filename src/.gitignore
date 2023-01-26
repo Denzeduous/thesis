@@ -1,10 +1,5 @@
 *.h5
 *.data
-episodes/
-images/*
-*.png
-*.zip
-*.exe
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

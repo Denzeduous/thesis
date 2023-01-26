@@ -13,7 +13,7 @@ from PyQt5.QtSvg import QSvgWidget
 from PyQt5.QtWidgets import QApplication, QWidget
 
 class ChessEnv(gym.Env):
-	metadata = {'render_modes': ['image', 'fen']}
+	metadata = {'render_modes': ['image', 'image-cl', 'fen']}
 
 	def __init__(self, render_mode: str = None, render_sampling: int = 1, reward_type: str = 'Simple', analysis_depth: int = 10):
 		# 8x8 board with the player
@@ -39,13 +39,16 @@ class ChessEnv(gym.Env):
 			raise NotImplementedError(f'Invalid reward type "{reward_type}". Valid reward types are: {rewards_str}.')
 
 		self.board_data = np.vectorize(lambda x: int(x.piece_type) if x != None else 0)
+		self.engine = chess.engine.SimpleEngine.popen_uci('../stockfish.exe')
 
 		self.reset()
 
-		if render_mode == 'image':
+		if render_mode == 'image' or render_mode == 'image-cl':
 			if not os.path.exists('episodes'):
 				os.makedirs('episodes')
-			else:
+
+		if render_mode == 'image-cl':
+			if os.path.exists('episodes'):
 				for filename in os.listdir('episodes'):
 					file = os.path.join('episodes', filename)
 
@@ -95,7 +98,7 @@ class ChessEnv(gym.Env):
 		return self._get_obs(), reward, self.board.outcome(claim_draw = True), False, self._get_info()
 
 	def render(self):
-		if self.render_mode == 'image' and (self.episode % self.render_sampling == 0 or self.episode == 1):
+		if (self.render_mode == 'image' or self.render_mode == 'image-cl') and self.episode % self.render_sampling == 0:
 				episode_dir = os.path.join('episodes', f'Episode_{self.episode}')
 				file_path = os.path.join(episode_dir, f'move_{len(self.board.move_stack):03d}.svg')
 
@@ -138,25 +141,23 @@ class ChessEnv(gym.Env):
 		}
 
 	def _analyze_white(self, board):
-		with chess.engine.SimpleEngine.popen_uci('../stockfish.exe') as sf:
-			result = sf.analyse(board, chess.engine.Limit(depth=self.analysis_depth))
+		result = self.engine.analyse(board, chess.engine.Limit(depth=self.analysis_depth))
 
-			white = result['score'].white().score()
-			black = result['score'].black().score()
-			
-			if white == None or black == None:
-				return 0
+		white = result['score'].white().score()
+		black = result['score'].black().score()
+		
+		if white == None or black == None:
+			return 0
 
-			return (expit(white - black) - 0.5) * 2
+		return white - black
 
 	def _analyze_black(self, board):
-		with chess.engine.SimpleEngine.popen_uci('../stockfish.exe') as sf:
-			result = sf.analyse(board, chess.engine.Limit(depth=self.analysis_depth))
+		result = self.engine.analyse(board, chess.engine.Limit(depth=self.analysis_depth))
 
-			white = result['score'].white().score()
-			black = result['score'].black().score()
-			
-			if white == None or black == None:
-				return 0
+		white = result['score'].white().score()
+		black = result['score'].black().score()
+		
+		if white == None or black == None:
+			return 0
 
-			return (expit(black - white) - 0.5) * 2
+		return black - white

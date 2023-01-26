@@ -1,13 +1,15 @@
 import chess
 import keras
 import random
+import torch
+import dnc
 import numpy as np
 import gymnasium as gym
 from keras.layers import Softmax
 from pandas.core.common import flatten
 
-class DNNChessAgent:
-	def __init__(self, model: keras.Model, env: gym.Env):
+class DNCChessAgent:
+	def __init__(self, model: dnc.DNC, env: gym.Env):
 		self.model = model
 		self.env   = env
 		self.board = env.board
@@ -36,24 +38,29 @@ class DNNChessAgent:
 		
 		return np.array(list(flatten(state.values()))).reshape(1, 1, self.state_size)
 
-	def get_move_training(self, state):
+	def get_move_training(self, state, dnc_state):
 		state = self.reform_state(state)
-		actions = self.model.predict(state, verbose=0)
+		actions = None
 
-		probability = Softmax()(actions[0])
+		with torch.no_grad():
+			actions = np.array(self.model(torch.tensor(state), dnc_state))
 
+		print(f'Actions: {actions}')
+		
+		probability = Softmax()(actions)
+		
 		# Get the probability subsets
 		probability_from = probability[  :64]
 		probability_to   = probability[64:-4]
 		probability_pro  = probability[-4:  ]
-
+		
 		# Normalize the probabilities
 		probability_from *= 1 / np.sum(probability_from)
 		probability_to   *= 1 / np.sum(probability_to)
 		probability_pro  *= 1 / np.sum(probability_pro)
-
+		
 		from_squares = [move.from_square for move in self.env.possible_actions]
-
+		
 		# This code works off of a "bracket" probability system.
 		# Say z is the probability we wish to reach, and x + y == z.
 		# x = 0.4, y = 0.55, z = 0.9.
@@ -67,7 +74,7 @@ class DNNChessAgent:
 		rand = random.uniform(0, 1)
 		idx_from = None
 		fallback = None
-
+		
 		for probability in probability_from:
 			if bracket + probability > rand and i in from_squares:
 				idx_from = i
@@ -80,7 +87,7 @@ class DNNChessAgent:
 			i += 1
 
 		if idx_from == None: idx_from = fallback # This can happen if the sum of probabilities < 1.0. Can occur
-
+		
 		to_squares = [move.to_square for move in self.env.possible_actions if move.from_square == idx_from]
 
 		i = 0

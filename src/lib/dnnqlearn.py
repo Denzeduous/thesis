@@ -10,7 +10,7 @@ from collections import deque
 import pandas as pd
 from pandas.core.common import flatten
 
-class QLearnAgent():
+class DNNQLearnAgent():
 	def __init__(self, model: Model, chess_agent: lib.dnn.DNNChessAgent,
 	             name: str, env: Env, state_size: int, episodes: int,
 	             learn_rate: float = 0.001, gamma: float = 0.95,
@@ -60,7 +60,7 @@ class QLearnAgent():
 			Q-Learning step with randomness based on epsilon.
 		'''
 		self.epsilon *= self.epsilon_decay
-		
+
 		if self.epsilon < self.epsilon_min:
 			self.epsilon = self.epsilon_min
 
@@ -81,7 +81,6 @@ class QLearnAgent():
 		'''
 		state = self.reform_state(state).reshape(1, 1, self.state_size)
 		next_state = self.reform_state(next_state).reshape(1, 1, self.state_size)
-
 		self.memory.append((state, action, reward, next_state, terminal))
 
 	def replay(self, sample_batch_size):
@@ -94,16 +93,19 @@ class QLearnAgent():
 
 		accuracy = []
 		loss = []
+		i = 1
 
 		for state, action, reward, next_state, terminal in sample_batch:
 			prediction = self.model.predict(next_state, verbose=0)
-			target = reward + self.gamma * np.amax(prediction) * bool(terminal)
 
+			target = np.argmax(prediction) * bool(terminal)
 			target_sample = self.model.predict(state, verbose=0)
-			target_sample[0][0] = target
+			target_sample[0][target] = reward / 200 + self.gamma * prediction[0][target]
+
 			history = self.model.fit(state, target_sample, epochs=1, verbose=0)
 
 			accuracy.append(history.history['accuracy'])
+
 			loss.append(history.history['loss'])
 
 		self.accuracy[self.episode] = np.average(accuracy)
