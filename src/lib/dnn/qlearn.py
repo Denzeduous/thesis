@@ -100,7 +100,7 @@ class QLearnAgent():
 
 			target = np.argmax(prediction) * bool(terminal)
 			target_sample = self.model.predict(state, verbose=0)
-			target_sample[0][target] = reward / 200 + self.gamma * prediction[0][target]
+			target_sample[0][0][target] = reward / 200 + self.gamma * prediction[0][0][target]
 
 			history = self.model.fit(state, target_sample, epochs=1, verbose=0)
 

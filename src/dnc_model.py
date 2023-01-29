@@ -14,10 +14,9 @@ from keras.layers import Activation, Dense, Dropout, Flatten, Softmax
 from keras.optimizers import adam_v2 as Adam
 from keras.losses import SparseCategoricalCrossentropy
 
-SAMPLING = 1
+SAMPLING = 500
 EPISODES = 10_000
 EPISODE_TIME = np.zeros(EPISODES)
-REWARDS = [[] for x in range(EPISODES)]
 
 def build_dnc(states, actions):
 	return DNC(states, 128, actions, 64, 128, 1, 12)
@@ -64,8 +63,6 @@ def train_dnc():
 
 			env.render()
 
-			REWARDS[i].append(reward)
-
 			if reward >= 0:
 				agent.remember(state, action, reward, next_state, terminated)
 
@@ -98,14 +95,11 @@ def train_dnc():
 
 	agent.save_model()
 
-	avg_rewards = np.array([np.mean(episode) for episode in REWARDS])
-
-	plt.plot(avg_rewards)
 	plt.plot(agent.loss / np.linalg.norm(agent.loss))
 	plt.title('Model Performance')
-	plt.ylabel('Rewards / Loss (Normalized)')
+	plt.ylabel('Loss (Normalized)')
 	plt.xlabel('Epoch')
-	plt.legend(['average rewards', 'accuracy', 'loss'], loc='upper left')
+	plt.legend(['loss'], loc='upper left')
 	plt.show()
 
 	# with open('rewards.data', 'a+') as f:

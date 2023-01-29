@@ -41,17 +41,12 @@ class ChessAgent:
 
 		actions = self.model.predict(state, verbose=0)
 
-		probability = Softmax()(actions[0])
+		probability = actions[0][0]
 
 		# Get the probability subsets
 		probability_from = probability[  :64]
 		probability_to   = probability[64:-4]
 		probability_pro  = probability[-4:  ]
-
-		# Normalize the probabilities
-		probability_from *= 1 / np.sum(probability_from)
-		probability_to   *= 1 / np.sum(probability_to)
-		probability_pro  *= 1 / np.sum(probability_pro)
 
 		from_squares = [move.from_square for move in self.env.possible_actions]
 
@@ -131,7 +126,7 @@ class ChessAgent:
 		state = self.reform_state(state)
 		actions = self.model.predict(state, verbose=0)
 
-		probability = Softmax()(actions[0])
+		probability = actions[0]
 
 		# Get the probability subsets and sort them
 		from_arr = np.argsort(np.array(probability[  :64]))[::-1]

@@ -100,7 +100,6 @@ class QLearnAgent():
 
 		sample_batch = random.sample(self.memory, sample_batch_size)
 
-		accuracy = []
 		loss = []
 
 		for state, action, reward, next_state, terminal in sample_batch:
