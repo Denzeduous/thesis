@@ -6,7 +6,7 @@ import gymnasium as gym
 from keras.layers import Softmax
 from pandas.core.common import flatten
 
-class DNNChessAgent:
+class ChessAgent:
 	def __init__(self, model: keras.Model, env: gym.Env):
 		self.model = model
 		self.env   = env
@@ -38,6 +38,7 @@ class DNNChessAgent:
 
 	def get_move_training(self, state):
 		state = self.reform_state(state)
+
 		actions = self.model.predict(state, verbose=0)
 
 		probability = Softmax()(actions[0])
@@ -124,7 +125,7 @@ class DNNChessAgent:
 
 			if promotion == None: promotion = fallback # This can happen if the sum of probabilities < 1.0. Can occur
 
-		return chess.Move(idx_from, idx_to, promotion)
+		return chess.Move(idx_from, idx_to, promotion), probability_from, probability_to
 
 	def get_move(self, state):
 		state = self.reform_state(state)
@@ -147,6 +148,7 @@ class DNNChessAgent:
 		if idx_from == None: raise Exception(f'Unknown error in from_squares {from_squares}.')
 		
 		to_squares = [move.to_square for move in self.env.possible_actions if move.from_square == idx_from]
+
 		idx_to = None
 
 		for idx in to_arr:
@@ -162,6 +164,14 @@ class DNNChessAgent:
 		if len(promotions) > 0:
 			for idx in pro_arr:
 				if idx in promotions:
-					idx_to = int(idx)
+					promotion = int(idx)
 
-		return chess.Move(idx_from, idx_to, promotion)
+		# Get the probability subsets
+		probability_from = probability[  :64]
+		probability_to   = probability[64:-4]
+		
+		# Normalize the probabilities
+		probability_from *= 1 / np.sum(probability_from)
+		probability_to   *= 1 / np.sum(probability_to)
+
+		return chess.Move(idx_from, idx_to, promotion), probability_from, probability_to

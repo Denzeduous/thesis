@@ -6,8 +6,7 @@ import lib.gymchess
 import lib.chessutil
 import numpy as np
 from math import floor
-from lib.dnn import DNNChessAgent
-from lib.dnnqlearn import DNNQLearnAgent
+from lib.dnn import ChessAgent, QLearnAgent
 from matplotlib import pyplot as plt
 from collections import deque
 from keras import Sequential
@@ -25,7 +24,7 @@ def build_dnn(states, actions):
 	print(states, actions)
 	model = Sequential()
 	model.add(Flatten(input_shape=(1, states)))
-	model.add(Dense(64,  activation='tanh'))
+	model.add(Dense(128,  activation='tanh'))
 	model.add(Dense(actions))
 	model.compile(optimizer='adam',
 	              loss='categorical_crossentropy',
@@ -34,12 +33,12 @@ def build_dnn(states, actions):
 	return model
 
 def build_agent(model, chess_agent, states, actions, env):
-	return DNNQLearnAgent(model, chess_agent, 'ChessDNN', env, states, EPISODES)
+	return QLearnAgent(model, chess_agent, 'ChessDNN', env, states, EPISODES)
 
 def train_dnn():
 	global REWARDS
-	env = gym.make('ChessVsSelf-v0', render_mode='image', render_sampling=SAMPLING)
-	env.episode = 1000
+	env = lib.gymchess.ChessEnv(render_mode='image-cl', render_sampling=SAMPLING)
+	env.episode = 5_000 - 1
 
 	states = env.observation_space['board'].n + env.observation_space['player'].n
 	actions = env.action_space.n
@@ -50,7 +49,7 @@ def train_dnn():
 	print(model.count_params())
 	print(model.summary())
 
-	chess_agent = DNNChessAgent(model, env)
+	chess_agent = ChessAgent(model, env)
 	agent = build_agent(model, chess_agent, states, actions, env)
 
 	train_start_time = time.time()
@@ -64,13 +63,13 @@ def train_dnn():
 		sample = (i + 1) % SAMPLING == 0 or i == 0
 
 		while not terminated:
-			action = agent.step(env, state)
+			action, pred_from, pred_to = agent.step(env, state)
 
 			next_state = None
 			reward = None
 			terminated = None
 
-			next_state, reward, terminated, truncated, info = env.step(action)
+			next_state, reward, terminated, truncated, info = env.step(action, pred_from=pred_from, pred_to=pred_to)
 
 			env.render()
 
@@ -102,6 +101,7 @@ def train_dnn():
 			print(f'Episode {i + 1} finished in {delta_min} minutes and {delta_sec} seconds because of {terminated.termination}.')
 			print(f'Elapsed time: {elapsed_min} minutes and {elapsed_sec} seconds.')
 			print(f'Estimated time remaining: {estimated_min} minutes and {estimated_sec} seconds.\n')
+			agent.save_model()
 
 		env.render()
 
@@ -109,13 +109,12 @@ def train_dnn():
 
 	avg_rewards = np.array([np.mean(episode) for episode in REWARDS])
 
-	plt.plot(avg_rewards)
 	plt.plot(agent.accuracy / np.linalg.norm(agent.accuracy))
 	plt.plot(agent.loss / np.linalg.norm(agent.loss))
 	plt.title('Model Performance')
-	plt.ylabel('Accuracy / Rewards (Normalized)')
+	plt.ylabel('Accuracy (Normalized)')
 	plt.xlabel('Epoch')
-	plt.legend(['average rewards', 'accuracy', 'loss'], loc='upper left')
+	plt.legend(['accuracy', 'loss'], loc='upper left')
 	plt.show()
 
 	# with open('rewards.data', 'a+') as f:

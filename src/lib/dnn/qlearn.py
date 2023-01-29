@@ -2,7 +2,7 @@ import chess
 import math
 import random
 import numpy as np
-import lib.dnn
+from lib.dnn import ChessAgent
 from gymnasium import Env
 from keras import Model
 from keras.layers import Softmax
@@ -10,11 +10,11 @@ from collections import deque
 import pandas as pd
 from pandas.core.common import flatten
 
-class DNNQLearnAgent():
-	def __init__(self, model: Model, chess_agent: lib.dnn.DNNChessAgent,
+class QLearnAgent():
+	def __init__(self, model: Model, chess_agent: ChessAgent,
 	             name: str, env: Env, state_size: int, episodes: int,
 	             learn_rate: float = 0.001, gamma: float = 0.95,
-	             epsilon: float = 1.0, epsilon_min: float = 0.01,
+	             epsilon: float = 1.0, epsilon_min: float = 0.05,
 	             epsilon_decay: float = 0.99999, max_mem: int = 2_000):
 		self.model = model
 		self.chess_agent = chess_agent
@@ -64,16 +64,16 @@ class DNNQLearnAgent():
 		if self.epsilon < self.epsilon_min:
 			self.epsilon = self.epsilon_min
 
-		if np.random.uniform(0, 1) <= self.epsilon:
-			return np.random.choice(self.env.possible_actions)
+		#if np.random.uniform(0, 1) <= self.epsilon:
+			#return np.random.choice(self.env.possible_actions), None, None
 
-		move = self.chess_agent.get_move_training(state)
+		move, pred_from, pred_to = self.chess_agent.get_move_training(state)
 
 		if move not in self.env.possible_actions:
 			raise Exception(f'INVALID MOVE! {move} in set {self.env.possible_actions}')
 			return self.env.possible_actions[random.randrange(len(self.env.possible_actions))]
 
-		return move
+		return move, pred_from, pred_to
 
 	def remember(self, state, action, reward, next_state, terminal):
 		'''

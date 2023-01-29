@@ -3,12 +3,13 @@ import keras
 import random
 import torch
 import dnc
+import math
 import numpy as np
 import gymnasium as gym
 from keras.layers import Softmax
 from pandas.core.common import flatten
 
-class DNCChessAgent:
+class ChessAgent:
 	def __init__(self, model: dnc.DNC, env: gym.Env):
 		self.model = model
 		self.env   = env
@@ -36,19 +37,19 @@ class DNCChessAgent:
 		if not isinstance(state['player'], int):
 			state['player'] = 0 if state['player'] == 'White' else 1
 		
-		return np.array(list(flatten(state.values()))).reshape(1, 1, self.state_size)
+		return np.array(list(flatten(state.values()))).reshape(1, self.state_size)
 
 	def get_move_training(self, state, dnc_state):
 		state = self.reform_state(state)
 		actions = None
 
 		with torch.no_grad():
-			actions = np.array(self.model(torch.tensor(state), dnc_state))
+			actions, dnc_state = self.model(torch.tensor(state), dnc_state)
 
-		print(f'Actions: {actions}')
-		
-		probability = Softmax()(actions)
-		
+		actions = torch.tanh(actions)
+
+		probability = Softmax()(actions.numpy()[0]).numpy()
+
 		# Get the probability subsets
 		probability_from = probability[  :64]
 		probability_to   = probability[64:-4]
@@ -58,9 +59,9 @@ class DNCChessAgent:
 		probability_from *= 1 / np.sum(probability_from)
 		probability_to   *= 1 / np.sum(probability_to)
 		probability_pro  *= 1 / np.sum(probability_pro)
-		
+
 		from_squares = [move.from_square for move in self.env.possible_actions]
-		
+
 		# This code works off of a "bracket" probability system.
 		# Say z is the probability we wish to reach, and x + y == z.
 		# x = 0.4, y = 0.55, z = 0.9.
@@ -74,7 +75,7 @@ class DNCChessAgent:
 		rand = random.uniform(0, 1)
 		idx_from = None
 		fallback = None
-		
+
 		for probability in probability_from:
 			if bracket + probability > rand and i in from_squares:
 				idx_from = i
@@ -131,13 +132,18 @@ class DNCChessAgent:
 
 			if promotion == None: promotion = fallback # This can happen if the sum of probabilities < 1.0. Can occur
 
-		return chess.Move(idx_from, idx_to, promotion)
+		return chess.Move(idx_from, idx_to, promotion), dnc_state, probability_from, probability_to
 
-	def get_move(self, state):
+	def get_move(self, state, dnc_state):
 		state = self.reform_state(state)
-		actions = self.model.predict(state, verbose=0)
+		actions = None
 
-		probability = Softmax()(actions[0])
+		with torch.no_grad():
+			actions, dnc_state = self.model(torch.tensor(state), dnc_state)
+
+		actions = torch.tanh(actions)
+
+		probability = Softmax()(actions.numpy()).numpy()[0]
 
 		# Get the probability subsets and sort them
 		from_arr = np.argsort(np.array(probability[  :64]))[::-1]
@@ -169,6 +175,14 @@ class DNCChessAgent:
 		if len(promotions) > 0:
 			for idx in pro_arr:
 				if idx in promotions:
-					idx_to = int(idx)
+					promotion = int(idx)
 
-		return chess.Move(idx_from, idx_to, promotion)
+		# Get the probability subsets
+		probability_from = probability[  :64]
+		probability_to   = probability[64:-4]
+		
+		# Normalize the probabilities
+		probability_from *= 1 / np.sum(probability_from)
+		probability_to   *= 1 / np.sum(probability_to)
+
+		return chess.Move(idx_from, idx_to, promotion), dnc_state, probability_from, probability_to

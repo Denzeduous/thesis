@@ -3,21 +3,21 @@ import math
 import random
 import torch
 from torch import optim
-from torch.nn import BCELoss
+from torch.nn import CrossEntropyLoss
 import numpy as np
 from gymnasium import Env
 from dnc import DNC
-from lib.dnc.agent import DNCChessAgent
+from lib.dnc import ChessAgent
 from keras.layers import Softmax
 from collections import deque
 import pandas as pd
 from pandas.core.common import flatten
 
-class DNCQLearnAgent():
-	def __init__(self, model: DNC, chess_agent: DNCChessAgent,
+class QLearnAgent():
+	def __init__(self, model: DNC, chess_agent: ChessAgent,
 	             name: str, env: Env, state_size: int, episodes: int,
 	             learn_rate: float = 0.001, gamma: float = 0.95,
-	             epsilon: float = 1.0, epsilon_min: float = 0.01,
+	             epsilon: float = 1.0, epsilon_min: float = 0.05,
 	             epsilon_decay: float = 0.99999, max_mem: int = 2_000):
 		self.model = model
 		self.chess_agent = chess_agent
@@ -34,7 +34,7 @@ class DNCQLearnAgent():
 		self.loss = np.zeros(episodes)
 		self.episode = 0
 
-		self._loss = BCELoss()
+		self._loss = CrossEntropyLoss()
 		self._optimizer = optim.AdamW(self.model.parameters(), amsgrad=True)
 		self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -57,10 +57,11 @@ class DNCQLearnAgent():
 		if not isinstance(state['player'], int):
 			state['player'] = 0 if state['player'] == 'White' else 1
 		
-		return np.array(list(flatten(state.values()))).reshape(1, 1, self.state_size)
+		return np.array(list(flatten(state.values()))).reshape(1, self.state_size)
 
 	def save_model(self):
-		self.model.save(self.name + '.h5')
+		with open(f'{self.name}.pth.tar', 'wb+') as file:
+			torch.save(self.model, file)
 
 	def step(self, env, state, dnc_state):
 		'''
@@ -72,22 +73,22 @@ class DNCQLearnAgent():
 			self.epsilon = self.epsilon_min
 
 		if np.random.uniform(0, 1) <= self.epsilon:
-			return np.random.choice(self.env.possible_actions)
+			return np.random.choice(self.env.possible_actions), dnc_state, None, None
 
-		move = self.chess_agent.get_move_training(state, dnc_state)
+		move, dnc_state, pred_from, pred_to = self.chess_agent.get_move_training(state, dnc_state)
 
 		if move not in self.env.possible_actions:
 			raise Exception(f'INVALID MOVE! {move} in set {self.env.possible_actions}')
 			return self.env.possible_actions[random.randrange(len(self.env.possible_actions))]
 
-		return move
+		return move, dnc_state, pred_from, pred_to
 
 	def remember(self, state, action, reward, next_state, terminal):
 		'''
 			Store the state and next state in the deque to sample later.
 		'''
-		state = self.reform_state(state).reshape(1, 1, self.state_size)
-		next_state = self.reform_state(next_state).reshape(1, 1, self.state_size)
+		state = self.reform_state(state).reshape(1, self.state_size)
+		next_state = self.reform_state(next_state).reshape(1, self.state_size)
 
 		self.memory.append((state, action, reward, next_state, terminal))
 
@@ -107,30 +108,23 @@ class DNCQLearnAgent():
 
 			prediction = None
 
-			with torch.no_grad():
-				prediction = np.array(self.model(torch.tensor(next_state), dnc_state))
+			prediction, dnc_state = self.model(torch.tensor(next_state), dnc_state)
 
-			print(prediction)
-			target = reward + self.gamma * np.amax(prediction) * bool(terminal)
+			target = np.argmax(prediction.detach().numpy()[0]) * bool(terminal)
 			target_sample = None
 
 			with torch.no_grad():
-				out, state = self.model(torch.tensor(state), dnc_state)
-				target_sample = np.array(out)
-			print(target_sample)
+				target_sample, dnc_state = self.model(torch.tensor(state), dnc_state)
+				target_sample[0, target] = reward / 200 + self.gamma * prediction[0][target]
 
-			loss = _loss(torch.sigmoid(torch.stack(target_sample))).transpose(0, 1)
-			loss.backward()
-			
-			target_sample[0][0] = target
-			print(target_sample[0][0])
+			model_loss = self._loss(torch.tanh(prediction), torch.tanh(target_sample))
+			model_loss.backward()
 
 			self._optimizer.zero_grad()
 			self._optimizer.step()
 
-			loss.append(loss.item())
+			loss.append(model_loss.detach().numpy())
 
-		self.accuracy[self.episode] = np.average(accuracy)
 		self.loss[self.episode] = np.average(loss)
 
 		# Decay the exploration

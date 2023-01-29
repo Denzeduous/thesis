@@ -7,70 +7,71 @@ import lib.gymchess
 import lib.chessutil
 import numpy as np
 from math import floor
-from lib.dnc import DNCChessAgent, DNCQLearnAgent
+from lib.dnc import ChessAgent, QLearnAgent
 from matplotlib import pyplot as plt
 from keras import Sequential
 from keras.layers import Activation, Dense, Dropout, Flatten, Softmax
 from keras.optimizers import adam_v2 as Adam
 from keras.losses import SparseCategoricalCrossentropy
 
-SAMPLING = 100
-EPISODES = 2_500
+SAMPLING = 1
+EPISODES = 10_000
 EPISODE_TIME = np.zeros(EPISODES)
 REWARDS = [[] for x in range(EPISODES)]
 
 def build_dnc(states, actions):
-	return DNC(states, 128, actions, 32, 64, 1, 6)
+	return DNC(states, 128, actions, 64, 128, 1, 12)
 
 def build_agent(model, chess_agent, states, actions, env):
-	return DNCQLearnAgent(model, chess_agent, 'ChessDNC', env, states, EPISODES)
+	return QLearnAgent(model, chess_agent, 'ChessDNC', env, states, EPISODES)
 
 def train_dnc():
 	global REWARDS
-	env = gym.make('ChessVsSelf-v0', render_sampling=SAMPLING)
+	env = lib.gymchess.ChessEnv(render_mode='image-cl', folder='episodes_dnc', render_sampling=SAMPLING)
 
 	states = env.observation_space['board'].n + env.observation_space['player'].n
 	actions = env.action_space.n
 
 	model = build_dnc(states, actions)
 
-	chess_agent = DNCChessAgent(model, env)
+	chess_agent = ChessAgent(model, env)
 	agent = build_agent(model, chess_agent, states, actions, env)
 
 	train_start_time = time.time()
 
 	for i in range(EPISODES):
-		print(f'Starting episode {i}')
 		start_time = time.time()
 
 		state = env.reset()
-		dnc_state = model.reset()
+
+		dnc_state   = model.reset()
+		dnc_state_2 = model.reset()
+
 		terminated = False
 
-		sample = (i + 1) % SAMPLING == 0
-		move = 0
+		sample = (i + 1) % SAMPLING == 0 or i == 0
+
 		while not terminated:
-			action = agent.step(env, state, dnc_state)
+			dnc_state, dnc_state_2 = dnc_state_2, dnc_state
+
+			action, dnc_state, pred_from, pred_to = agent.step(env, state, dnc_state)
 
 			next_state = None
 			reward = None
 			terminated = None
 
-			next_state, reward, terminated, truncated, info = env.step(action)
+			next_state, reward, terminated, truncated, info = env.step(action, pred_from=pred_from, pred_to=pred_to)
 
-			#env.render()
+			env.render()
 
 			REWARDS[i].append(reward)
 
 			if reward >= 0:
-				print(f'Episode {i} before')
 				agent.remember(state, action, reward, next_state, terminated)
-				print(f'Episode {i} after remember')
 
 			state = next_state
-		print(f'Episode {i} before replay')
+
 		agent.replay(32)
-		print(f'Episode {i} after replay')
 
 		# Calculate time remaining for training.
 		end_time = time.time()
@@ -91,8 +92,9 @@ def train_dnc():
 			print(f'Episode {i + 1} finished in {delta_min} minutes and {delta_sec} seconds because of {terminated.termination}.')
 			print(f'Elapsed time: {elapsed_min} minutes and {elapsed_sec} seconds.')
 			print(f'Estimated time remaining: {estimated_min} minutes and {estimated_sec} seconds.\n')
+			agent.save_model()
 
-		#env.render()
+		env.render()
 
 	agent.save_model()
 

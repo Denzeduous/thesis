@@ -6,6 +6,7 @@ import chess.svg
 import chess.engine
 import numpy as np
 import gymnasium as gym
+from lib.util import prediction_to_color
 from gymnasium import spaces
 from scipy.special import expit
 from PyQt5.QtCore import (QCoreApplication, QObject, QRunnable, QThread, QThreadPool, pyqtSignal)
@@ -15,7 +16,7 @@ from PyQt5.QtWidgets import QApplication, QWidget
 class ChessEnv(gym.Env):
 	metadata = {'render_modes': ['image', 'image-cl', 'fen']}
 
-	def __init__(self, render_mode: str = None, render_sampling: int = 1, reward_type: str = 'Simple', analysis_depth: int = 10):
+	def __init__(self, render_mode: str = None, render_sampling: int = 1, reward_type: str = 'Simple', folder='episodes', analysis_depth: int = 10):
 		# 8x8 board with the player
 		self.observation_space = spaces.Dict({
 			'board': spaces.Discrete(64),
@@ -23,6 +24,7 @@ class ChessEnv(gym.Env):
 		})
 
 		self.episode = 0
+		self.folder = folder
 
 		# Every board position * 2 + promotions
 		self.action_space = spaces.Discrete(64 * 2 + 4)
@@ -31,8 +33,9 @@ class ChessEnv(gym.Env):
 		self.render_sampling = render_sampling
 		self.reward_type = reward_type
 		self.analysis_depth = analysis_depth
+		self.colors = None
 
-		rewards = ['Simple']
+		rewards = ['Simple', None]
 
 		if reward_type not in rewards:
 			rewards_str = ', '.join(rewards)
@@ -44,13 +47,13 @@ class ChessEnv(gym.Env):
 		self.reset()
 
 		if render_mode == 'image' or render_mode == 'image-cl':
-			if not os.path.exists('episodes'):
-				os.makedirs('episodes')
+			if not os.path.exists(self.folder):
+				os.makedirs(self.folder)
 
 		if render_mode == 'image-cl':
-			if os.path.exists('episodes'):
-				for filename in os.listdir('episodes'):
-					file = os.path.join('episodes', filename)
+			if os.path.exists(self.folder):
+				for filename in os.listdir(self.folder):
+					file = os.path.join(self.folder, filename)
 
 					if os.path.isfile(file):
 						os.unlink(file)
@@ -79,7 +82,7 @@ class ChessEnv(gym.Env):
 
 		return self._get_obs(), self._get_info()
 
-	def step(self, move: chess.Move):
+	def step(self, move: chess.Move, pred_from = None, pred_to = None):
 		self.board.push(move)
 
 		reward = 0
@@ -94,12 +97,17 @@ class ChessEnv(gym.Env):
 			self.player = 'Black'
 		else:
 			self.player = 'White'
+		
+		if pred_from is not None and pred_to is not None:
+			self.colors = prediction_to_color(pred_from, pred_to)
+		else:
+			self.colors = None
 
 		return self._get_obs(), reward, self.board.outcome(claim_draw = True), False, self._get_info()
 
 	def render(self):
 		if (self.render_mode == 'image' or self.render_mode == 'image-cl') and self.episode % self.render_sampling == 0:
-				episode_dir = os.path.join('episodes', f'Episode_{self.episode}')
+				episode_dir = os.path.join(self.folder, f'Episode_{self.episode}')
 				file_path = os.path.join(episode_dir, f'move_{len(self.board.move_stack):03d}.svg')
 
 				if not os.path.exists(episode_dir):
@@ -113,11 +121,17 @@ class ChessEnv(gym.Env):
 						move = self.board.peek()
 
 						if self.last_render != move:
-							f.write(chess.svg.board(
-								self.board,
-								fill=dict.fromkeys(self.board.attacks(move.from_square), '#cc0000cc'),
-								arrows=[chess.svg.Arrow(move.from_square, move.to_square, color='#0000cccc')],
-							))
+							if self.colors is not None:
+								f.write(chess.svg.board(
+									self.board,
+									fill=self.colors,
+									arrows=[chess.svg.Arrow(move.from_square, move.to_square, color='#0000cccc')],
+								))
+							else:
+								f.write(chess.svg.board(
+									self.board,
+									arrows=[chess.svg.Arrow(move.from_square, move.to_square, color='#0000cccc')],
+								))
 						else:
 							f.write(chess.svg.board(self.board))
 
