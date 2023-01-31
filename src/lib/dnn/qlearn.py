@@ -15,7 +15,7 @@ class QLearnAgent():
 	             name: str, env: Env, state_size: int, episodes: int,
 	             learn_rate: float = 0.001, gamma: float = 0.95,
 	             epsilon: float = 1.0, epsilon_min: float = 0.05,
-	             epsilon_decay: float = 0.99999, max_mem: int = 2_000):
+	             epsilon_decay: float = 0.999999, max_mem: int = 2_000):
 		self.model = model
 		self.chess_agent = chess_agent
 		self.name = name
@@ -64,14 +64,13 @@ class QLearnAgent():
 		if self.epsilon < self.epsilon_min:
 			self.epsilon = self.epsilon_min
 
-		#if np.random.uniform(0, 1) <= self.epsilon:
-			#return np.random.choice(self.env.possible_actions), None, None
+		if np.random.uniform(0, 1) <= self.epsilon:
+			return np.random.choice(self.env.possible_actions), None, None
 
 		move, pred_from, pred_to = self.chess_agent.get_move_training(state)
 
 		if move not in self.env.possible_actions:
 			raise Exception(f'INVALID MOVE! {move} in set {self.env.possible_actions}')
-			return self.env.possible_actions[random.randrange(len(self.env.possible_actions))]
 
 		return move, pred_from, pred_to
 
@@ -98,9 +97,22 @@ class QLearnAgent():
 		for state, action, reward, next_state, terminal in sample_batch:
 			prediction = self.model.predict(next_state, verbose=0)
 
-			target = np.argmax(prediction) * bool(terminal)
+			actions = prediction[0][0]
+
+			# Get the probability subsets
+			probability_from = actions[  :64]
+			probability_to   = actions[64:-4]
+			probability_pro  = actions[-4:  ]
+
+			target_from = np.argmax(probability_from).item()
+			target_to   = np.argmax(probability_to  ).item()
+			target_pro  = np.argmax(probability_pro ).item()
+
 			target_sample = self.model.predict(state, verbose=0)
-			target_sample[0][0][target] = reward / 200 + self.gamma * prediction[0][0][target]
+
+			target_sample[0][0][target_from] = reward / 200 + self.gamma * prediction[0][0][target_from]
+			target_sample[0][0][target_to]   = reward / 200 + self.gamma * prediction[0][0][target_to]
+			target_sample[0][0][target_pro]  = reward / 200 + self.gamma * prediction[0][0][target_pro]
 
 			history = self.model.fit(state, target_sample, epochs=1, verbose=0)
 

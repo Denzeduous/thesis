@@ -106,7 +106,7 @@ class ChessEnv(gym.Env):
 		return self._get_obs(), reward, self.board.outcome(claim_draw = True), False, self._get_info()
 
 	def render(self):
-		if (self.render_mode == 'image' or self.render_mode == 'image-cl') and self.episode % self.render_sampling == 0:
+		if (self.render_mode == 'image' or self.render_mode == 'image-cl') and (self.episode % self.render_sampling == 0 or self.episode == 1):
 				episode_dir = os.path.join(self.folder, f'Episode_{self.episode}')
 				file_path = os.path.join(episode_dir, f'move_{len(self.board.move_stack):03d}.svg')
 
@@ -125,12 +125,12 @@ class ChessEnv(gym.Env):
 								f.write(chess.svg.board(
 									self.board,
 									fill=self.colors,
-									arrows=[chess.svg.Arrow(move.from_square, move.to_square, color='#0000cccc')],
+									arrows=[chess.svg.Arrow(move.from_square, move.to_square, color='#ffffffff')],
 								))
 							else:
 								f.write(chess.svg.board(
 									self.board,
-									arrows=[chess.svg.Arrow(move.from_square, move.to_square, color='#0000cccc')],
+									arrows=[chess.svg.Arrow(move.from_square, move.to_square, color='#ffffffff')],
 								))
 						else:
 							f.write(chess.svg.board(self.board))

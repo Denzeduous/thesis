@@ -1,10 +1,12 @@
 *.h5
 *.data
-episodes/
-images/*
+*.pth.tar
 *.png
 *.zip
 *.exe
+episodes/
+episodes_dnc/
+main/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

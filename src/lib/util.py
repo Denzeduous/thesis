@@ -1,35 +1,30 @@
-def rgb_to_hex(rgb):
-	return '#%02x%02x%02x' % rgb
+import numpy as np
+
+def rgba_to_hex(rgb):
+	return '#%02x%02x%02x%02x' % rgb
 
 def prediction_to_color(from_squares, to_squares):
-	colors = {i: (0, 0, 0) for i in range(len(from_squares))}
+	colors = {i: (0, 0) for i in range(len(from_squares))}
 
-	largest_from = 0
+	from_squares = np.array(from_squares)
+	to_squares   = np.array(to_squares)
 
 	for i in range(len(from_squares)):
-		if from_squares[i] > largest_from:
-			largest_from = from_squares[i]
-
 		color = colors[i]
-		# print(from_squares[i])
-		# print(255 * from_squares[i])
-		colors[i] = (int(255 * from_squares[i]), color[1], color[2])
-
-	largest_to = 0
+		colors[i] = (255 * from_squares[i], color[1])
 
 	for i in range(len(to_squares)):
-		if to_squares[i] > largest_to:
-			largest_to = to_squares[i]
-
 		color = colors[i]
-		# print(to_squares[i])
-		# print(255 * to_squares[i])
-		colors[i] = (color[0], color[1], int(255 * to_squares[i]))
+		colors[i] = (color[0], 255 * to_squares[i])
+
+	largest_from = np.amax(from_squares)
+	largest_to = np.amax(to_squares)
 
 	return {
-		i: rgb_to_hex((
+		i: rgba_to_hex((
 			int(colors[i][0] / largest_from * 255),
-			0,
-			int(colors[i][2] / largest_to * 255)))
+			128,
+			int(colors[i][1] / largest_to * 255),
+			255))
 		for i in range(len(from_squares))
 	}

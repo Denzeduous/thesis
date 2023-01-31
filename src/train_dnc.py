@@ -1,13 +1,14 @@
 import math
 import time
 import chess
-from dnc import DNC
 import gymnasium as gym
 import lib.gymchess
 import lib.chessutil
 import numpy as np
+import torch
+from torch import nn
 from math import floor
-from lib.dnc import ChessAgent, QLearnAgent
+from lib.dnc import ChessAgent, QLearnAgent, SequentialDNC
 from matplotlib import pyplot as plt
 from keras import Sequential
 from keras.layers import Activation, Dense, Dropout, Flatten, Softmax
@@ -15,23 +16,27 @@ from keras.optimizers import adam_v2 as Adam
 from keras.losses import SparseCategoricalCrossentropy
 
 SAMPLING = 500
-EPISODES = 10_000
+EPISODES = 5_000
 EPISODE_TIME = np.zeros(EPISODES)
 
 def build_dnc(states, actions):
-	return DNC(states, 128, actions, 64, 128, 1, 12)
+	return SequentialDNC(states, actions, training=True)
 
 def build_agent(model, chess_agent, states, actions, env):
 	return QLearnAgent(model, chess_agent, 'ChessDNC', env, states, EPISODES)
 
 def train_dnc():
 	global REWARDS
-	env = lib.gymchess.ChessEnv(render_mode='image-cl', folder='episodes_dnc', render_sampling=SAMPLING)
+	env = lib.gymchess.ChessEnv(render_mode='image', folder='episodes_dnc', render_sampling=SAMPLING)
+	env.episode = 5_000
 
 	states = env.observation_space['board'].n + env.observation_space['player'].n
 	actions = env.action_space.n
 
-	model = build_dnc(states, actions)
+	#model = build_dnc(states, actions)
+	model = torch.load('ChessDNC.pth.tar')
+
+	print(f"Model structure: {model}\n\n")
 
 	chess_agent = ChessAgent(model, env)
 	agent = build_agent(model, chess_agent, states, actions, env)
@@ -43,17 +48,12 @@ def train_dnc():
 
 		state = env.reset()
 
-		dnc_state   = model.reset()
-		dnc_state_2 = model.reset()
-
 		terminated = False
 
 		sample = (i + 1) % SAMPLING == 0 or i == 0
 
 		while not terminated:
-			dnc_state, dnc_state_2 = dnc_state_2, dnc_state
-
-			action, dnc_state, pred_from, pred_to = agent.step(env, state, dnc_state)
+			action, pred_from, pred_to = agent.step(env, state)
 
 			next_state = None
 			reward = None

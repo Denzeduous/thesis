@@ -70,7 +70,6 @@ def main():
 
 	dnc_model = torch.load('ChessDNC.pth.tar')
 	dnc_agent = dnc.ChessAgent(dnc_model, env)
-	dnc_state = dnc_model.reset()
 
 	state = env.reset()
 
@@ -85,8 +84,7 @@ def main():
 		if white:
 			move, pred_from, pred_to = dnn_agent.get_move(state)
 		else:
-			print('DNC DNC DNC DNC DNC DNC')
-			move, dnc_state, pred_from, pred_to = dnc_agent.get_move(state, dnc_state)
+			move, pred_from, pred_to = dnc_agent.get_move(state)
 
 		white = not white
 

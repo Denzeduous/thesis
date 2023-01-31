@@ -23,7 +23,7 @@ EPISODE_TIME = deque(maxlen = EPISODES // SAMPLING)
 def build_dnn_old(states, actions):
 	print(states, actions)
 	model = Sequential()
-	model.add(Flatten(input_shape=(1, states)))
+	model.add(Flatten(input_shape=(1, 1, states)))
 
 	model.add(Dense(64,  activation='tanh'))
 	model.add(Dense(128, activation='tanh'))
@@ -71,15 +71,14 @@ def build_agent(model, chess_agent, states, actions, env):
 	return QLearnAgent(model, chess_agent, 'ChessDNN', env, states, EPISODES)
 
 def train_dnn():
-	global REWARDS
 	env = lib.gymchess.ChessEnv(render_mode='image', render_sampling=SAMPLING)
-	env.episode = 5_000 - 1
+	env.episode = 5_000
 
 	states = env.observation_space['board'].n + env.observation_space['player'].n
 	actions = env.action_space.n
 
-	model = build_dnn(states, actions)
-	#model = load_model('ChessDNN.h5')
+	#model = build_dnn(states, actions)
+	model = load_model('ChessDNN.h5')
 
 	print(model.count_params())
 	print(model.summary())
@@ -108,7 +107,7 @@ def train_dnn():
 
 			env.render()
 
-			if reward >= 0:
+			if reward >= 0 and not bool(terminated):
 				agent.remember(state, action, reward, next_state, terminated)
 
 			state = next_state

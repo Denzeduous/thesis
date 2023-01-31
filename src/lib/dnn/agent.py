@@ -39,14 +39,16 @@ class ChessAgent:
 	def get_move_training(self, state):
 		state = self.reform_state(state)
 
-		actions = self.model.predict(state, verbose=0)
-
-		probability = actions[0][0]
+		actions = self.model.predict(state, verbose=0)[0][0]
 
 		# Get the probability subsets
-		probability_from = probability[  :64]
-		probability_to   = probability[64:-4]
-		probability_pro  = probability[-4:  ]
+		probability_from = actions[  :64]
+		probability_to   = actions[64:-4]
+		probability_pro  = actions[-4:  ]
+
+		prob_from_loc = np.argsort(probability_from)
+		prob_to_loc   = np.argsort(probability_to)
+		prob_pro_loc  = np.argsort(probability_pro)
 
 		from_squares = [move.from_square for move in self.env.possible_actions]
 
@@ -64,15 +66,15 @@ class ChessAgent:
 		idx_from = None
 		fallback = None
 
-		for probability in probability_from:
-			if bracket + probability > rand and i in from_squares:
+		for probability in prob_from_loc:
+			if bracket + probability_from[probability] > rand and i in from_squares:
 				idx_from = i
 				break
 
 			if fallback == None and i in from_squares:
 				fallback = i
 			
-			bracket += probability
+			bracket += probability_from[probability]
 			i += 1
 
 		if idx_from == None: idx_from = fallback # This can happen if the sum of probabilities < 1.0. Can occur
@@ -85,15 +87,15 @@ class ChessAgent:
 		idx_to = None
 		fallback = None
 
-		for probability in probability_to:
-			if bracket + probability > rand and i in to_squares:
+		for probability in prob_to_loc:
+			if bracket + probability_to[probability] > rand and i in to_squares:
 				idx_to = i
 				break
 
 			if fallback == None and i in to_squares:
 				fallback = i
 			
-			bracket += probability
+			bracket += probability_to[probability]
 			i += 1
 
 		if idx_to == None: idx_to = fallback # This can happen if the sum of probabilities < 1.0. Can occur
@@ -107,15 +109,15 @@ class ChessAgent:
 		promotions = [move.promotion for move in self.env.possible_actions if move.from_square == idx_from and move.promotion != None]
 
 		if len(promotions) > 0:
-			for probability in probability_pro:
-				if bracket + probability > rand and i in promotions:
+			for probability in prob_pro_loc:
+				if bracket + probability_pro[probability] > rand and i in promotions:
 					promotion = i
 					break
 
 				if fallback == None and i in promotions:
 					fallback = i
 				
-				bracket += probability
+				bracket += probability_pro[probability]
 				i += 1
 
 			if promotion == None: promotion = fallback # This can happen if the sum of probabilities < 1.0. Can occur
@@ -124,14 +126,12 @@ class ChessAgent:
 
 	def get_move(self, state):
 		state = self.reform_state(state)
-		actions = self.model.predict(state, verbose=0)
-
-		probability = actions[0]
+		actions = self.model.predict(state, verbose=0)[0][0]
 
 		# Get the probability subsets and sort them
-		from_arr = np.argsort(np.array(probability[  :64]))[::-1]
-		to_arr   = np.argsort(np.array(probability[64:-4]))[::-1]
-		pro_arr  = np.argsort(np.array(probability[-4:  ]))[::-1]
+		from_arr = np.argsort(np.array(actions[  :64]))[::-1]
+		to_arr   = np.argsort(np.array(actions[64:-4]))[::-1]
+		pro_arr  = np.argsort(np.array(actions[-4:  ]))[::-1]
 
 		from_squares = [move.from_square for move in self.env.possible_actions]
 		idx_from = None
@@ -139,6 +139,7 @@ class ChessAgent:
 		for idx in from_arr:
 			if idx in from_squares:
 				idx_from = int(idx)
+				break
 
 		if idx_from == None: raise Exception(f'Unknown error in from_squares {from_squares}.')
 		
@@ -149,6 +150,7 @@ class ChessAgent:
 		for idx in to_arr:
 			if idx in to_squares:
 				idx_to = int(idx)
+				break
 
 		if idx_to == None: raise Exception(f'All were None in to_squares {to_squares}.')
 		
@@ -160,13 +162,10 @@ class ChessAgent:
 			for idx in pro_arr:
 				if idx in promotions:
 					promotion = int(idx)
+					break
 
 		# Get the probability subsets
-		probability_from = probability[  :64]
-		probability_to   = probability[64:-4]
-		
-		# Normalize the probabilities
-		probability_from *= 1 / np.sum(probability_from)
-		probability_to   *= 1 / np.sum(probability_to)
+		probability_from = actions[  :64]
+		probability_to   = actions[64:-4]
 
 		return chess.Move(idx_from, idx_to, promotion), probability_from, probability_to
