@@ -39,6 +39,7 @@ class SequentialDNC(nn.Module):
 
 	def forward(self, x):
 		logits = x
+
 		logits, self._states[0] = self._dnc1(logits, self._states[0])
 		logits, self._states[1] = self._dnc2(logits, self._states[1])
 		from_squares, self._states[2] = self._dnc3(logits, self._states[2])

@@ -17,7 +17,7 @@ class QLearnAgent():
 	             name: str, env: Env, state_size: int, episodes: int,
 	             learn_rate: float = 0.001, gamma: float = 0.95,
 	             epsilon: float = 1.0, epsilon_min: float = 0.05,
-	             epsilon_decay: float = 0.999999, max_mem: int = 2_000):
+	             epsilon_decay: float = 0.99999, max_mem: int = 2_000):
 		self.model = model
 		self.chess_agent = chess_agent
 		self.name = name
@@ -89,7 +89,11 @@ class QLearnAgent():
 		state = self.reform_state(state).reshape(1, self.state_size)
 		next_state = self.reform_state(next_state).reshape(1, self.state_size)
 
-		self.memory.append((state, action, reward, next_state, terminal))
+		# They swap after a step
+		states1 = self.model._states2
+		states2 = self.model._states
+
+		self.memory.append((state, action, reward, next_state, terminal, states1, states2))
 
 	def replay(self, sample_batch_size):
 		'''
@@ -101,37 +105,43 @@ class QLearnAgent():
 
 		loss = []
 
-		for state, action, reward, next_state, terminal in sample_batch:
+		for state, action, reward, next_state, terminal, states1, states2 in sample_batch:
 			self.model.reset()
+			self.model._states  = states1
+			self.model._states2 = states2
 
 			prediction = self.model(torch.tensor(next_state))
 
-			target = np.argmax(prediction.detach().numpy()[0])
 			target_sample = None
 
 			with torch.no_grad():
 				actions = prediction[0]
 
-				# Get the probability subsets
-				probability_from = actions[  :64]
-				probability_to   = actions[64:-4]
-				probability_pro  = actions[-4:  ]
+				target = 1 / (1 + np.exp(-reward))
 
-				target_from = np.argmax(probability_from).item()
-				target_to   = np.argmax(probability_to  ).item()
-				target_pro  = np.argmax(probability_pro ).item()
+				if terminal:
+					target *= 5
+				else:
+					target += self.gamma * np.amax(prediction[0].numpy())
 
 				target_sample = self.model(torch.tensor(state))
 
-				target_sample[0, target_from] = reward / 200 + self.gamma * prediction[0, target_from]
-				target_sample[0, target_to]   = reward / 200 + self.gamma * prediction[0, target_to]
-				target_sample[0, target_pro]  = reward / 200 + self.gamma * prediction[0, target_pro]
+				target_sample[0, action.from_square]    = target
+				target_sample[0, action.to_square + 64] = target
+
+				if action.promotion != None:
+					target_sample[0, action.promotion] = reward
 
 			model_loss = self._loss(torch.tanh(prediction), torch.tanh(target_sample))
-			model_loss.backward()
-
+			
 			self._optimizer.zero_grad()
-			self._optimizer.step()
+			
+			try:
+				model_loss.backward()
+
+				self._optimizer.step()
+			except Exception as e:
+				pass
 
 			loss.append(model_loss.detach().numpy())
 

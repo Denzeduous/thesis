@@ -12,10 +12,10 @@ from pandas.core.common import flatten
 
 class QLearnAgent():
 	def __init__(self, model: Model, chess_agent: ChessAgent,
-	             name: str, env: Env, state_size: int, episodes: int,
-	             learn_rate: float = 0.001, gamma: float = 0.95,
-	             epsilon: float = 1.0, epsilon_min: float = 0.05,
-	             epsilon_decay: float = 0.999999, max_mem: int = 2_000):
+				 name: str, env: Env, state_size: int, episodes: int,
+				 learn_rate: float = 0.001, gamma: float = 0.95,
+				 epsilon: float = 1.0, epsilon_min: float = 0.05,
+				 epsilon_decay: float = 0.99999, max_mem: int = 2_000):
 		self.model = model
 		self.chess_agent = chess_agent
 		self.name = name
@@ -92,33 +92,48 @@ class QLearnAgent():
 
 		accuracy = []
 		loss = []
-		i = 1
 
-		for state, action, reward, next_state, terminal in sample_batch:
-			prediction = self.model.predict(next_state, verbose=0)
+		targets = []
 
-			actions = prediction[0][0]
+		# for state, action, reward, next_state, terminal in sample_batch:
+		# 	prediction = self.model.predict(next_state, verbose=0)
 
-			# Get the probability subsets
-			probability_from = actions[  :64]
-			probability_to   = actions[64:-4]
-			probability_pro  = actions[-4:  ]
+		# 	actions = prediction[0][0]
 
-			target_from = np.argmax(probability_from).item()
-			target_to   = np.argmax(probability_to  ).item()
-			target_pro  = np.argmax(probability_pro ).item()
+		# 	reward = 1 / (1 + np.exp(-reward))
 
-			target_sample = self.model.predict(state, verbose=0)
+		# 	target_sample = self.model.predict(state, verbose=0)
 
-			target_sample[0][0][target_from] = reward / 200 + self.gamma * prediction[0][0][target_from]
-			target_sample[0][0][target_to]   = reward / 200 + self.gamma * prediction[0][0][target_to]
-			target_sample[0][0][target_pro]  = reward / 200 + self.gamma * prediction[0][0][target_pro]
+		# 	target_sample[0][0][action.from_square]    = reward + self.gamma * np.amax(prediction[0][0])
+		# 	target_sample[0][0][action.to_square + 64] = reward + self.gamma * np.amax(prediction[0][0])
+			
+		# 	if action.promotion != None:
+		# 		target_sample[0][0][action.promotion] = reward / 2_000 + self.gamma * np.amax(prediction[0][0])
 
-			history = self.model.fit(state, target_sample, epochs=1, verbose=0)
+		# 	targets.append(target_sample[0])
 
-			accuracy.append(history.history['accuracy'])
+		# history = self.model.fit(np.array([state[0] for state, _, _, _, _ in sample_batch]), np.array(targets), epochs=1, verbose=0)
 
-			loss.append(history.history['loss'])
+		states, targets_f = [], []
+		for state, action, reward, next_state, done in sample_batch:
+			reward = 1 / (1 + np.exp(-reward))
+			target = reward
+			if not done:
+				target = (reward + self.gamma *
+				          np.amax(self.model.predict(next_state)[0]))
+			else:
+				target *= 5
+			target_f = self.model.predict(state)
+			target_f[0][0][action.from_square] = target 
+			target_f[0][0][action.to_square]   = target 
+			# Filtering out states and targets for training
+			states.append(state[0])
+			targets_f.append(target_f[0])
+		history = self.model.fit(np.array(states), np.array(targets_f), epochs=1, verbose=0)
+		# Keeping track of loss
+
+		accuracy.append(history.history['accuracy'])
+		loss.append(history.history['loss'])
 
 		self.accuracy[self.episode] = np.average(accuracy)
 		self.loss[self.episode] = np.average(loss)

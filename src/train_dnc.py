@@ -26,15 +26,14 @@ def build_agent(model, chess_agent, states, actions, env):
 	return QLearnAgent(model, chess_agent, 'ChessDNC', env, states, EPISODES)
 
 def train_dnc():
-	global REWARDS
-	env = lib.gymchess.ChessEnv(render_mode='image', folder='episodes_dnc', render_sampling=SAMPLING)
-	env.episode = 5_000
+	env = lib.gymchess.ChessEnv(render_mode='image-cl', folder='episodes_dnc', render_sampling=SAMPLING)
+	#env.episode = 5_000
 
 	states = env.observation_space['board'].n + env.observation_space['player'].n
 	actions = env.action_space.n
 
-	#model = build_dnc(states, actions)
-	model = torch.load('ChessDNC.pth.tar')
+	model = build_dnc(states, actions)
+	#model = torch.load('ChessDNC.pth.tar')
 
 	print(f"Model structure: {model}\n\n")
 
@@ -54,11 +53,6 @@ def train_dnc():
 
 		while not terminated:
 			action, pred_from, pred_to = agent.step(env, state)
-
-			next_state = None
-			reward = None
-			terminated = None
-
 			next_state, reward, terminated, truncated, info = env.step(action, pred_from=pred_from, pred_to=pred_to)
 
 			env.render()
@@ -68,7 +62,7 @@ def train_dnc():
 
 			state = next_state
 
-		agent.replay(32)
+		agent.replay(64)
 
 		# Calculate time remaining for training.
 		end_time = time.time()

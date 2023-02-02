@@ -21,7 +21,6 @@ EPISODES = 5_000
 EPISODE_TIME = deque(maxlen = EPISODES // SAMPLING)
 
 def build_dnn_old(states, actions):
-	print(states, actions)
 	model = Sequential()
 	model.add(Flatten(input_shape=(1, 1, states)))
 
@@ -40,22 +39,19 @@ def build_dnn_old(states, actions):
 def build_dnn(states, actions):
 	state = Input(shape=(1, states))
 
-	from_square_l1   = Dense(65, activation='tanh')(state)
-	from_square_l2   = Dense(65, activation='tanh')(from_square_l1)
-	from_square_l3   = Dense(64)(from_square_l2)
-	from_leaky_relu  = LeakyReLU(alpha=0.05)(from_square_l3)
+	from_square_l1   = Dense(65, activation='relu')(state)
+	from_square_l2   = Dense(65, activation='relu')(from_square_l1)
+	from_square_l3   = Dense(64, activation='linear')(from_square_l2)
 	from_probability = Softmax()(from_square_l3)
 
-	to_square_l1   = Dense(65, activation='tanh')(state)
-	to_square_l2   = Dense(65, activation='tanh')(to_square_l1)
-	to_square_l3   = Dense(64)(to_square_l2)
-	to_leaky_relu  = LeakyReLU(alpha=0.05)(to_square_l3)
+	to_square_l1   = Dense(65, activation='relu')(state)
+	to_square_l2   = Dense(65, activation='relu')(to_square_l1)
+	to_square_l3   = Dense(64, activation='linear')(to_square_l2)
 	to_probability = Softmax()(to_square_l3)
 
-	pro_square_l1   = Dense(65, activation='tanh')(state)
-	pro_square_l2   = Dense(65, activation='tanh')(pro_square_l1)
-	pro_square_l3   = Dense(4)(pro_square_l2)
-	pro_leaky_relu  = LeakyReLU(alpha=0.05)(pro_square_l3)
+	pro_square_l1   = Dense(65, activation='relu')(state)
+	pro_square_l2   = Dense(65, activation='relu')(pro_square_l1)
+	pro_square_l3   = Dense(4,  activation='linear')(pro_square_l2)
 	pro_probability = Softmax()(pro_square_l3)
 
 	action_probabilities = concatenate([from_probability, to_probability, pro_probability])
@@ -71,14 +67,14 @@ def build_agent(model, chess_agent, states, actions, env):
 	return QLearnAgent(model, chess_agent, 'ChessDNN', env, states, EPISODES)
 
 def train_dnn():
-	env = lib.gymchess.ChessEnv(render_mode='image', render_sampling=SAMPLING)
-	env.episode = 5_000
+	env = lib.gymchess.ChessEnv(render_mode='image-cl', render_sampling=SAMPLING)
+	#env.episode = 10_000
 
 	states = env.observation_space['board'].n + env.observation_space['player'].n
 	actions = env.action_space.n
 
-	#model = build_dnn(states, actions)
-	model = load_model('ChessDNN.h5')
+	model = build_dnn(states, actions)
+	#model = load_model('ChessDNN.h5')
 
 	print(model.count_params())
 	print(model.summary())
@@ -107,12 +103,14 @@ def train_dnn():
 
 			env.render()
 
-			if reward >= 0 and not bool(terminated):
-				agent.remember(state, action, reward, next_state, terminated)
+			if bool(terminated):
+				reward = 10_000
+
+			agent.remember(state, action, reward, next_state, terminated)
 
 			state = next_state
 
-		agent.replay(32)
+		agent.replay(64)
 
 		# Calculate time remaining for training.
 		end_time = time.time()
