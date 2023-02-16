@@ -8,10 +8,6 @@ import numpy as np
 import gymnasium as gym
 from lib.util import prediction_to_color
 from gymnasium import spaces
-from scipy.special import expit
-from PyQt5.QtCore import (QCoreApplication, QObject, QRunnable, QThread, QThreadPool, pyqtSignal)
-from PyQt5.QtSvg import QSvgWidget
-from PyQt5.QtWidgets import QApplication, QWidget
 
 class ChessEnv(gym.Env):
 	metadata = {'render_modes': ['image', 'image-cl', 'fen']}
@@ -20,6 +16,7 @@ class ChessEnv(gym.Env):
 		# 8x8 board with the player
 		self.observation_space = spaces.Dict({
 			'board': spaces.Discrete(64),
+			#'ownership': spaces.Discrete(64),
 			'player': spaces.Discrete(1),
 		})
 
@@ -35,13 +32,14 @@ class ChessEnv(gym.Env):
 		self.analysis_depth = analysis_depth
 		self.colors = None
 
-		rewards = ['Simple', None]
+		rewards = ['Simple', 'Stockfish', None]
 
 		if reward_type not in rewards:
 			rewards_str = ', '.join(rewards)
 			raise NotImplementedError(f'Invalid reward type "{reward_type}". Valid reward types are: {rewards_str}.')
 
-		self.board_data = np.vectorize(lambda x: int(x.piece_type) if x != None else 0)
+		self.board_data = np.vectorize(lambda x: int(x.piece_type) * (-1 if x.color != self.board.turn else 1) if x != None else 0)
+		self.player_data = np.vectorize(lambda x: int(x.color) + 1 if x != None else 0)
 		self.engine = chess.engine.SimpleEngine.popen_uci('../stockfish.exe')
 
 		self.reset()
@@ -78,16 +76,86 @@ class ChessEnv(gym.Env):
 		else:
 			self.board = board
 
+		# This follows the indexing at
+		# https://python-chess.readthedocs.io/en/latest/core.html#colors
+		# and
+		# https://python-chess.readthedocs.io/en/latest/core.html#piece-types
+		self.pieces = [
+			[
+				8, 2, 2, 2, 1, 1,
+			],
+			[
+				8, 2, 2, 2, 1, 1,
+			],
+		]
+
 		self.player = 'White'
 
 		return self._get_obs(), self._get_info()
 
 	def step(self, move: chess.Move, pred_from = None, pred_to = None):
+		player = self.board.turn
+
+		if move.promotion != None:
+			self.pieces[player][chess.PAWN] -= 1
+			self.pieces[player][move.promotion] += 1
+
 		self.board.push(move)
+
+		pieces = [
+			[
+				len(square) for square in [
+					self.board.pieces(chess.PAWN,   chess.WHITE),
+					self.board.pieces(chess.KNIGHT, chess.WHITE),
+					self.board.pieces(chess.BISHOP, chess.WHITE),
+					self.board.pieces(chess.ROOK,   chess.WHITE),
+					self.board.pieces(chess.QUEEN,  chess.WHITE),
+					self.board.pieces(chess.KING,   chess.WHITE),
+				]
+			],
+			[
+				len(square) for square in [
+					self.board.pieces(chess.PAWN,   chess.BLACK),
+					self.board.pieces(chess.KNIGHT, chess.BLACK),
+					self.board.pieces(chess.BISHOP, chess.BLACK),
+					self.board.pieces(chess.ROOK,   chess.BLACK),
+					self.board.pieces(chess.QUEEN,  chess.BLACK),
+					self.board.pieces(chess.KING,   chess.BLACK),
+				]
+			]
+		]
 
 		reward = 0
 
 		if self.reward_type == 'Simple':
+			opponent_pieces = [
+				pieces[not player][piece] * 10 for piece in range(len(pieces[not player]))
+				if pieces[not player][piece] < self.pieces[not player][piece]
+			]
+
+			reward = int(sum(opponent_pieces) * 1.5)
+
+			if self.board.is_checkmate():
+				reward += 10
+
+			elif self.board.is_check():
+				reward += 3
+
+			elif self.board.outcome() != None:
+				reward -= 10
+
+			# for piece in range(len(opponent_pieces)):
+			# 	if opponent_pieces[piece] < self.pieces[not player][piece]:
+			# 		if piece == chess.KING:
+			# 			reward = 100
+			# 		else:
+			# 			reward = piece * 10
+
+			# 		break
+
+		self.pieces = pieces
+
+		if self.reward_type == 'Stockfish':
 			if self.player == 'White':
 				reward = self._analyze_white(self.board)
 			else:
@@ -107,45 +175,49 @@ class ChessEnv(gym.Env):
 
 	def render(self):
 		if (self.render_mode == 'image' or self.render_mode == 'image-cl') and (self.episode % self.render_sampling == 0 or self.episode == 1):
-				episode_dir = os.path.join(self.folder, f'Episode_{self.episode}')
-				file_path = os.path.join(episode_dir, f'move_{len(self.board.move_stack):03d}.svg')
+			episode_dir = os.path.join(self.folder, f'Episode_{self.episode}')
+			file_path = os.path.join(episode_dir, f'move_{len(self.board.move_stack):03d}.svg')
 
-				if not os.path.exists(episode_dir):
-					os.makedirs(episode_dir)
+			if not os.path.exists(episode_dir):
+				os.makedirs(episode_dir)
 
-				with open(file_path, 'w+') as f:
-					if len(self.board.move_stack) == 0:
+			with open(file_path, 'w+') as f:
+				if len(self.board.move_stack) == 0:
+					f.write(chess.svg.board(self.board))
+
+				else:
+					move = self.board.peek()
+
+					if self.last_render != move:
+						if self.colors is not None:
+							f.write(chess.svg.board(
+								self.board,
+								fill=self.colors,
+								arrows=[chess.svg.Arrow(move.from_square, move.to_square, color='#ff2222')],
+							))
+						else:
+							f.write(chess.svg.board(
+								self.board,
+								arrows=[chess.svg.Arrow(move.from_square, move.to_square, color='#ff2222')],
+							))
+					else:
 						f.write(chess.svg.board(self.board))
 
-					else:
-						move = self.board.peek()
-
-						if self.last_render != move:
-							if self.colors is not None:
-								f.write(chess.svg.board(
-									self.board,
-									fill=self.colors,
-									arrows=[chess.svg.Arrow(move.from_square, move.to_square, color='#ffffffff')],
-								))
-							else:
-								f.write(chess.svg.board(
-									self.board,
-									arrows=[chess.svg.Arrow(move.from_square, move.to_square, color='#ffffffff')],
-								))
-						else:
-							f.write(chess.svg.board(self.board))
-
-						self.last_render = move
+					self.last_render = move
 
 		elif self.render_mode == 'fen':
 			return self.board.board_fen()
 
 	def _get_obs(self):
-		board = np.array([[self.board.piece_at(x + y * 8) for y in range(8)] for x in range(8)]).reshape(64)
-		board = self.board_data(board)
+		board = np.array([[self.board.piece_at(x + y * 8) for x in range(7, -1, -1)] for y in range(7, -1, -1)]).reshape(64)
+
+		values = self.board_data(board)
+
+		#ownership = self.player_data(board)
 
 		return {
-			'board': board,
+			'board': values,
+			#'ownership': ownership,
 			'player': self.player,
 		}
 

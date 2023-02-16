@@ -9,11 +9,11 @@ from .model import SequentialDNC
 from pandas.core.common import flatten
 
 class ChessAgent:
-	def __init__(self, model: SequentialDNC, env: gym.Env):
+	def __init__(self, model: SequentialDNC, env: gym.Env, states: int):
 		self.model = model
 		self.env   = env
 		self.board = env.board
-		self.state_size = env.observation_space['board'].n + env.observation_space['player'].n
+		self.state_size = states
 
 	def reform_state(self, state):
 		'''
@@ -32,10 +32,10 @@ class ChessAgent:
 
 		if not isinstance(state['board'], np.ndarray):
 			state['board'] = np.concatenate(state['board'])
-		
+
 		if not isinstance(state['player'], int):
 			state['player'] = 0 if state['player'] == 'White' else 1
-		
+
 		return np.array(list(flatten(state.values()))).reshape(1, self.state_size)
 
 	def get_move_training(self, state):
@@ -44,7 +44,7 @@ class ChessAgent:
 
 		with torch.no_grad():
 			actions = self.model(torch.tensor(state))
-		
+
 		actions = actions[0]
 
 		# Get the probability subsets
@@ -52,83 +52,77 @@ class ChessAgent:
 		probability_to   = actions[64:-4]
 		probability_pro  = actions[-4:  ]
 
-		prob_from_loc = np.argsort(probability_from)
-		prob_to_loc   = np.argsort(probability_to)
-		prob_pro_loc  = np.argsort(probability_pro)
+		prob_from_loc = torch.flip(np.argsort(probability_from), dims=(0,))
+		prob_to_loc   = torch.flip(np.argsort(probability_to),   dims=(0,))
+		prob_pro_loc  = torch.flip(np.argsort(probability_pro),  dims=(0,))
 
 		from_squares = [move.from_square for move in self.env.possible_actions]
+		loc_from = [loc for loc in prob_from_loc if loc in from_squares]
 
-		# This code works off of a "bracket" probability system.
-		# Say z is the probability we wish to reach, and x + y == z.
-		# x = 0.4, y = 0.55, z = 0.9.
-		# 
-		# We go through each of the two probabilities and add them together, checking each time.
-		# x = 0.4, which is less than 0.9.
-		# y = 0.55, which x + y > z, thus, this is the value we should choose.
-
-		i = 0
 		bracket = 0
-		rand = random.uniform(0, 1)
 		idx_from = None
 		fallback = None
+		rand = random.uniform(0, 0.9)
 
-		for probability in prob_from_loc:
-			if bracket + probability_from[probability] > rand and i in from_squares:
-				idx_from = i
+		for loc in range(len(loc_from)):
+			bracket += random.uniform(0, 0.15)
+
+			if bracket > rand:
+				idx_from = loc_from[loc].item()
 				break
 
-			if fallback == None and i in from_squares:
-				fallback = i
-			
-			bracket += probability_from[probability]
-			i += 1
+			if fallback == None:
+				fallback = loc_from[loc].item()
 
 		if idx_from == None: idx_from = fallback # This can happen if the sum of probabilities < 1.0. Can occur
 
 		to_squares = [move.to_square for move in self.env.possible_actions if move.from_square == idx_from]
+		loc_to = [loc for loc in prob_to_loc if loc in to_squares]
 
-		i = 0
 		bracket = 0
-		rand = random.uniform(0, 1)
 		idx_to = None
 		fallback = None
+		rand = random.uniform(0, 0.9)
 
-		for probability in prob_to_loc:
-			if bracket + probability_to[probability] > rand and i in to_squares:
-				idx_to = i
+		for loc in range(len(loc_to)):
+			bracket += random.uniform(0, 0.15)
+
+			if bracket > rand:
+				idx_to = loc_to[loc].item()
 				break
 
-			if fallback == None and i in to_squares:
-				fallback = i
-			
-			bracket += probability_to[probability]
-			i += 1
+			if fallback == None:
+				fallback = loc_to[loc].item()
 
 		if idx_to == None: idx_to = fallback # This can happen if the sum of probabilities < 1.0. Can occur
 
-		i = 0
+		promotions = [move.promotion for move in self.env.possible_actions if move.from_square == idx_from and move.promotion != None]
+		loc_pro = [loc for loc in prob_pro_loc if loc in promotions]
+
 		bracket = 0
-		rand = random.uniform(0, 1)
 		promotion = None
 		fallback = None
-
-		promotions = [move.promotion for move in self.env.possible_actions if move.from_square == idx_from and move.promotion != None]
+		rand = random.uniform(0, 0.9)
 
 		if len(promotions) > 0:
-			for probability in prob_pro_loc:
-				if bracket + probability_pro[probability] > rand and i in promotions:
-					promotion = i
+			for loc in range(len(loc_pro)):
+				bracket += random.uniform(0, 0.15)
+				
+				if bracket > rand:
+					promotion = loc_pro[loc] + 2 # The actual promotion values are 2 off
 					break
 
-				if fallback == None and i in promotions:
-					fallback = i
-				
-				bracket += probability_pro[probability]
-				i += 1
+				if fallback == None:
+					fallback = loc_pro[loc] + 2 # The actual promotion values are 2 off
 
 			if promotion == None: promotion = fallback # This can happen if the sum of probabilities < 1.0. Can occur
 
-		return chess.Move(idx_from, idx_to, promotion), probability_from, probability_to
+		probability_from  = probability_from.numpy()
+		probability_from += abs(np.min(probability_from))
+		probability_to  = probability_to.numpy()
+		probability_to += abs(np.min(probability_to))
+
+		return chess.Move(idx_from, idx_to, promotion), probability_from / sum(probability_from), probability_to / sum(probability_to)
 
 	def get_move(self, state):
 		state = self.reform_state(state)
@@ -139,29 +133,15 @@ class ChessAgent:
 
 		actions = actions[0]
 
-		# Get the probability subsets and sort them
-		from_arr = np.argsort(np.array(actions[  :64]))[::-1]
-		to_arr   = np.argsort(np.array(actions[64:-4]))[::-1]
-		pro_arr  = np.argsort(np.array(actions[-4:  ]))[::-1]
-
 		from_squares = [move.from_square for move in self.env.possible_actions]
-		idx_from = None
-
-		for idx in from_arr:
-			if idx in from_squares:
-				idx_from = int(idx)
-				break
+		loc_from = [loc for loc in prob_from_loc if loc in from_squares]
+		idx_from = loc_from[0].item()
 
 		if idx_from == None: raise Exception(f'Unknown error in from_squares {from_squares}.')
 		
 		to_squares = [move.to_square for move in self.env.possible_actions if move.from_square == idx_from]
-
-		idx_to = None
-
-		for idx in to_arr:
-			if idx in to_squares:
-				idx_to = int(idx)
-				break
+		loc_to = [loc for loc in prob_to_loc if loc in to_squares]
+		idx_to = loc_to[0].item()
 
 		if idx_to == None: raise Exception(f'All were None in to_squares {to_squares}.')
 		
@@ -170,15 +150,11 @@ class ChessAgent:
 		promotions = [move.promotion for move in self.env.possible_actions if move.from_square == idx_from and move.promotion != None]
 
 		if len(promotions) > 0:
-			for idx in pro_arr:
-				if idx in promotions:
-					promotion = int(idx)
-					break
+			loc_pro = [loc for loc in prob_pro_loc if loc in promotions]
+			promotion = loc_pro[0] + 2
 
 		# Get the probability subsets
 		probability_from = actions[  :64]
 		probability_to   = actions[64:-4]
-
-		print(255 * probability_from)
 
 		return chess.Move(idx_from, idx_to, promotion), probability_from, probability_to

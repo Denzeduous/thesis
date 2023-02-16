@@ -59,6 +59,31 @@ def reform_state_dnc(state):
 	
 	return np.array(list(flatten(state.values()))).reshape(1, 65)
 
+def test_dnn():
+	env = lib.gymchess.ChessEnv(render_mode='image-cl', folder='main', reward_type=None)
+	
+	dnn_model = load_model('ChessDNN.h5')
+	dnn_agent = dnn.ChessAgent(dnn_model, env, env.observation_space['board'].n + env.observation_space['player'].n)
+
+	terminated = False
+
+	state = env.reset()
+
+	while not bool(terminated):
+		move = None
+		pred_from = None
+		pred_to = None
+
+		move, pred_from, pred_to = dnn_agent.get_move(state)
+		next_state, reward, terminated, truncated, info = env.step(move, pred_from=pred_from, pred_to=pred_to)
+
+		env.render()
+		state = next_state
+
+	env.render()
+
+	print(f'Done with outcome {terminated}')
+
 def main():
 	'''
 		Temporary testing.
@@ -100,4 +125,5 @@ def main():
 	env.render()
 
 if __name__ == '__main__':
-	main()
+	test_dnn()
+	#main()
