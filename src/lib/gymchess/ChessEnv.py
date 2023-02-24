@@ -40,7 +40,7 @@ class ChessEnv(gym.Env):
 
 		self.board_data = np.vectorize(lambda x: int(x.piece_type) * (-1 if x.color != self.board.turn else 1) if x != None else 0)
 		self.player_data = np.vectorize(lambda x: int(x.color) + 1 if x != None else 0)
-		self.engine = chess.engine.SimpleEngine.popen_uci('../stockfish.exe')
+		#self.engine = chess.engine.SimpleEngine.popen_uci('../stockfish.exe')
 
 		self.reset()
 
