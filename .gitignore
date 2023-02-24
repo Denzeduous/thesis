@@ -4,8 +4,7 @@
 *.png
 *.zip
 *.exe
-episodes/
-episodes_dnc/
+episodes*/
 main/
 
 # Byte-compiled / optimized / DLL files

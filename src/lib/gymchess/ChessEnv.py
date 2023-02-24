@@ -142,7 +142,10 @@ class ChessEnv(gym.Env):
 				reward += 3
 
 			elif self.board.outcome() != None:
-				reward -= 10
+				reward -= 30
+
+			if move in self.board.move_stack:
+				reward -= 30
 
 			# for piece in range(len(opponent_pieces)):
 			# 	if opponent_pieces[piece] < self.pieces[not player][piece]:
@@ -213,11 +216,8 @@ class ChessEnv(gym.Env):
 
 		values = self.board_data(board)
 
-		#ownership = self.player_data(board)
-
 		return {
 			'board': values,
-			#'ownership': ownership,
 			'player': self.player,
 		}
 

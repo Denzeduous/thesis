@@ -14,8 +14,9 @@ class QLearnAgent():
 	def __init__(self, model: Model, chess_agent: ChessAgent,
 				 name: str, env: Env, state_size: int, episodes: int,
 				 learn_rate: float = 0.001, gamma: float = 0.95,
-				 epsilon: float = 1.0, epsilon_min: float = 0.05,
-				 epsilon_decay: float = 0.99999, max_mem: int = 2_000):
+				 epsilon: float = 1.0, epsilon_min: float = 0.1,
+				 epsilon_decay: float = 0.99999, tau: int = 50,
+				 max_mem: int = 2_000):
 		self.model = model
 		self.chess_agent = chess_agent
 		self.name = name
@@ -27,10 +28,11 @@ class QLearnAgent():
 		self.epsilon = epsilon
 		self.epsilon_min = epsilon_min
 		self.epsilon_decay = epsilon_decay
+		self.tau = tau
 		self.accuracy = np.zeros(episodes)
 		self.loss = np.zeros(episodes)
-		self.episode = 0
-		self.others = 0
+		self._weights = model.get_weights()
+		self._episode = 1
 
 	def reform_state(self, state):
 		'''
@@ -89,6 +91,9 @@ class QLearnAgent():
 		'''
 		if len(self.memory) < sample_batch_size: return
 
+		if self._episode % self.tau == 0:
+			self._weights = self.model.get_weights()
+
 		sample_batch = random.sample(self.memory, sample_batch_size)
 
 		accuracy = []
@@ -118,15 +123,14 @@ class QLearnAgent():
 		states, targets = [], []
 
 		for state, action, reward, next_state, done in sample_batch:
-			target_from = reward
-			target_to   = reward
-			target_pro  = reward
-
 			prediction = self.model.predict(next_state)
 
 			target_from = reward + self.gamma * np.amax(prediction[0][0][  :64])
 			target_to   = reward + self.gamma * np.amax(prediction[0][0][64:-4])
 			target_pro  = reward + self.gamma * np.amax(prediction[0][0][  :-4])
+
+			weights = self.model.get_weights()
+			self.model.set_weights(self._weights)
 
 			target_sample = self.model.predict(state)
 			target_sample[0][0][action.from_square]    = target_from 
@@ -134,6 +138,8 @@ class QLearnAgent():
 
 			if action.promotion != None:
 				target_sample[0][0][action.promotion + 128 - 2] = target_pro
+
+			self.model.set_weights(weights)
 
 			# Batch training to make things faster
 			states.append(state[0])
@@ -145,8 +151,8 @@ class QLearnAgent():
 		accuracy.append(history.history['accuracy'])
 		loss.append(history.history['loss'])
 
-		self.accuracy[self.episode] = np.average(accuracy)
-		self.loss[self.episode] = np.average(loss)
+		self.accuracy[self._episode - 1] = np.average(accuracy)
+		self.loss[self._episode - 1] = np.average(loss)
 
 		# Decay the exploration
 		self.epsilon *= self.epsilon_decay
@@ -154,4 +160,4 @@ class QLearnAgent():
 		if self.epsilon < self.epsilon_min:
 			self.epsilon = self.epsilon_min
 
-		self.episode += 1
+		self._episode += 1

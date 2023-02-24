@@ -6,6 +6,9 @@ class SequentialDNC(nn.Module):
 	def __init__(self, states, actions, training = False):
 		super(SequentialDNC, self).__init__()
 
+		self.states = states
+		self.actions = actions
+
 		self.training = training
 
 		self.activation = nn.ReLU()

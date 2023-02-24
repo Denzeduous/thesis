@@ -1,5 +1,4 @@
 import chess
-import keras
 import random
 import torch
 import math
@@ -133,6 +132,15 @@ class ChessAgent:
 
 		actions = actions[0]
 
+		# Get the probability subsets
+		probability_from = actions[  :64]
+		probability_to   = actions[64:-4]
+		probability_pro  = actions[-4:  ]
+
+		prob_from_loc = torch.flip(np.argsort(probability_from), dims=(0,))
+		prob_to_loc   = torch.flip(np.argsort(probability_to),   dims=(0,))
+		prob_pro_loc  = torch.flip(np.argsort(probability_pro),  dims=(0,))
+
 		from_squares = [move.from_square for move in self.env.possible_actions]
 		loc_from = [loc for loc in prob_from_loc if loc in from_squares]
 		idx_from = loc_from[0].item()
@@ -154,7 +162,9 @@ class ChessAgent:
 			promotion = loc_pro[0] + 2
 
 		# Get the probability subsets
-		probability_from = actions[  :64]
-		probability_to   = actions[64:-4]
+		probability_from  = actions[  :64].numpy()
+		probability_from += abs(np.min(probability_from))
+		probability_to  = actions[64:-4].numpy()
+		probability_to += abs(np.min(probability_to))
 
 		return chess.Move(idx_from, idx_to, promotion), probability_from, probability_to

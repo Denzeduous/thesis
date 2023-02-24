@@ -18,7 +18,8 @@ class QLearnAgent():
 	             loss, optimizer,
 	             learn_rate: float = 0.001, gamma: float = 0.95,
 	             epsilon: float = 1.0, epsilon_min: float = 0.05,
-	             epsilon_decay: float = 0.99999, max_mem: int = 2_000):
+	             epsilon_decay: float = 0.99999, tau: int = 100,
+	             max_mem: int = 2_000):
 		self.model = model
 		self.chess_agent = chess_agent
 		self.name = name
@@ -30,10 +31,15 @@ class QLearnAgent():
 		self.epsilon = epsilon
 		self.epsilon_min = epsilon_min
 		self.epsilon_decay = epsilon_decay
+		self.tau = tau
 		self.accuracy = np.zeros(episodes)
 		self.loss = np.zeros(episodes)
-		self.episode = 0
 
+		with torch.no_grad():
+			self._model_clone = type(self.model)(self.model.states, self.model.actions)
+			self._model_clone.load_state_dict(self.model.state_dict())
+
+		self._episode = 0
 		self._loss = loss
 		self._optimizer = optimizer(self.model.parameters(), lr=0.0001)
 		self._device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -87,11 +93,12 @@ class QLearnAgent():
 		state = self.reform_state(state).reshape(1, self.state_size)
 		next_state = self.reform_state(next_state).reshape(1, self.state_size)
 
-		# They swap after a step
-		states1 = self.model._states2
-		states2 = self.model._states
+		with torch.no_grad():
+			# They swap after a step
+			states1 = self.model._states2
+			states2 = self.model._states
 
-		self.memory.append((state, action, reward, next_state, terminal, states1, states2))
+			self.memory.append((state, action, reward, next_state, terminal, states1, states2))
 
 	def replay(self, sample_batch_size):
 		'''
@@ -103,66 +110,40 @@ class QLearnAgent():
 
 		loss = []
 
+		with torch.no_grad():
+			if self._episode % self.tau == 0:
+				self._model_clone.load_state_dict(self.model.state_dict())
+
 		for idx, sample_batch in sample_batch:
 			state, action, reward, next_state, terminal, states1, states2 = sample_batch			
 
 			with torch.no_grad():
+				detacher = lambda states: \
+					[ \
+					{\
+						key:
+						( \
+							val.detach() \
+							if type(val) == torch.Tensor \
+							else (tuple([x.detach() for x in val]) \
+								if type(val) == tuple \
+								else val)) \
+					for key, val in item.items()} \
+				for item in states]
+
 				self.model.reset()
-				# self.model._states  = states1
-				# self.model._states2 = states2
+				self.model._states = detacher(states1)
 
-			# prediction = self.model(torch.tensor(next_state))
-
-			# target_sample = None
-
-			# with torch.no_grad():
-			# 	# actions = prediction[0]
-
-			# 	# target = 1 / (1 + np.exp(-reward))
-
-			# 	# if terminal:
-			# 	# 	target *= 5
-			# 	# else:
-			# 	# 	target += self.gamma * np.amax(prediction[0].numpy())
-
-			# 	# target_sample = self.model(torch.tensor(state))
-
-			# 	# target_sample[0, action.from_square]    = target
-			# 	# target_sample[0, action.to_square + 64] = target
-
-			# 	# if action.promotion != None:
-			# 	# 	target_sample[0, action.promotion] = target
-
-			# 	target = 1 / (1 + np.exp(-reward))
-
-			# 	if not done:
-			# 		target = reward + self.gamma * np.amax(prediction[0].numpy())
-			# 	else:
-			# 		target *= 5
-
-			# 	target_sample = self.model.predict(state)
-			# 	target_sample[0, action.from_square] = target 
-			# 	target_sample[0, action.to_square]   = target
-
-			# 	if action.promotion != None:
-			# 		target_sample[0, action.promotion] = target
-
-			# model_loss = self._loss(torch.tanh(prediction), torch.tanh(target_sample))
-			
-			# self._optimizer.zero_grad()
-			
-			# try:
-			# 	model_loss.backward()
-
-			# 	self._optimizer.step()
-			# except Exception as e:
-			# 	pass
+				self._model_clone.reset()
+				self._model_clone._states = detacher(states1)
 
 			prediction = self.model(torch.tensor(state))
 			target_sample = None
 
+			self._model_clone.eval()
 			with torch.no_grad():
-				reward /= 10
+
+				reward /= 5
 
 				target_from = None
 				target_to   = None
@@ -177,7 +158,12 @@ class QLearnAgent():
 					target_to   = reward
 					target_pro  = reward
 
-				target_sample = self.model(torch.tensor(next_state))
+				self._model_clone._states  = self.model._states
+				self._model_clone._states2 = self.model._states2
+
+				#target_sample = self.model(torch.tensor(next_state))
+				_ = self._model_clone(torch.tensor(state))
+				target_sample = self._model_clone(torch.tensor(next_state))
 				target_sample[0, action.from_square]    = target_from
 				target_sample[0, action.to_square + 64] = target_to
 
@@ -196,7 +182,7 @@ class QLearnAgent():
 
 			loss.append(model_loss.detach().numpy())
 
-		self.loss[self.episode] = np.average(loss)
+		self.loss[self._episode] = np.average(loss)
 
 		# Decay the exploration
 		self.epsilon *= self.epsilon_decay
@@ -204,4 +190,4 @@ class QLearnAgent():
 		if self.epsilon < self.epsilon_min:
 			self.epsilon = self.epsilon_min
 
-		self.episode += 1
+		self._episode += 1

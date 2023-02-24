@@ -126,7 +126,9 @@ class ChessAgent:
 			promotion = loc_pro[0] + 2
 
 		# Get the probability subsets
-		probability_from = actions[  :64]
-		probability_to   = actions[64:-4]
+		probability_from  = actions[  :64]
+		probability_from += abs(np.min(probability_from))
+		probability_to  = actions[64:-4]
+		probability_to += abs(np.min(probability_to))
 
 		return chess.Move(idx_from, idx_to, promotion), probability_from / sum(probability_from), probability_to / sum(probability_to)
