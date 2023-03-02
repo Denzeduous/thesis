@@ -20,7 +20,7 @@ from pandas.core.common import flatten
 import sys
 
 SAMPLING = 100
-EPISODES = 5_000
+EPISODES = 1_000
 EPISODE_TIME = deque(maxlen = EPISODES // max(SAMPLING // 100, 1))
 
 def build_dnc(states, actions):

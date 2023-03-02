@@ -89,6 +89,8 @@ class ChessEnv(gym.Env):
 			],
 		]
 
+		self.previous_pieces = self.pieces[:]
+
 		self.player = 'White'
 
 		return self._get_obs(), self._get_info()
@@ -105,22 +107,22 @@ class ChessEnv(gym.Env):
 		pieces = [
 			[
 				len(square) for square in [
-					self.board.pieces(chess.PAWN,   chess.WHITE),
-					self.board.pieces(chess.KNIGHT, chess.WHITE),
-					self.board.pieces(chess.BISHOP, chess.WHITE),
-					self.board.pieces(chess.ROOK,   chess.WHITE),
-					self.board.pieces(chess.QUEEN,  chess.WHITE),
-					self.board.pieces(chess.KING,   chess.WHITE),
-				]
-			],
-			[
-				len(square) for square in [
 					self.board.pieces(chess.PAWN,   chess.BLACK),
 					self.board.pieces(chess.KNIGHT, chess.BLACK),
 					self.board.pieces(chess.BISHOP, chess.BLACK),
 					self.board.pieces(chess.ROOK,   chess.BLACK),
 					self.board.pieces(chess.QUEEN,  chess.BLACK),
 					self.board.pieces(chess.KING,   chess.BLACK),
+				]
+			],
+			[
+				len(square) for square in [
+					self.board.pieces(chess.PAWN,   chess.WHITE),
+					self.board.pieces(chess.KNIGHT, chess.WHITE),
+					self.board.pieces(chess.BISHOP, chess.WHITE),
+					self.board.pieces(chess.ROOK,   chess.WHITE),
+					self.board.pieces(chess.QUEEN,  chess.WHITE),
+					self.board.pieces(chess.KING,   chess.WHITE),
 				]
 			]
 		]
@@ -129,11 +131,14 @@ class ChessEnv(gym.Env):
 
 		if self.reward_type == 'Simple':
 			opponent_pieces = [
-				pieces[not player][piece] * 10 for piece in range(len(pieces[not player]))
-				if pieces[not player][piece] < self.pieces[not player][piece]
+				piece + 1 for piece in range(len(pieces[not player]))
+				if pieces[not player][piece] < self.previous_pieces[not player][piece]
 			]
 
-			reward = int(sum(opponent_pieces) * 1.5)
+			if len(opponent_pieces) > 0:
+				self.previous_pieces = self.pieces[:]
+
+			reward = sum(opponent_pieces)
 
 			if self.board.is_checkmate():
 				reward += 10
@@ -144,7 +149,7 @@ class ChessEnv(gym.Env):
 			elif self.board.outcome() != None:
 				reward -= 30
 
-			if move in self.board.move_stack:
+			if self.board.move_stack.count(move) > 1:
 				reward -= 30
 
 			# for piece in range(len(opponent_pieces)):

@@ -14,7 +14,7 @@ class QLearnAgent():
 	def __init__(self, model: Model, chess_agent: ChessAgent,
 				 name: str, env: Env, state_size: int, episodes: int,
 				 learn_rate: float = 0.001, gamma: float = 0.95,
-				 epsilon: float = 1.0, epsilon_min: float = 0.1,
+				 epsilon: float = 1.0, epsilon_min: float = 0.05,
 				 epsilon_decay: float = 0.99999, tau: int = 50,
 				 max_mem: int = 2_000):
 		self.model = model

@@ -60,7 +60,7 @@ def reform_state_dnc(state):
 	return np.array(list(flatten(state.values()))).reshape(1, 65)
 
 def test_dnn():
-	env = lib.gymchess.ChessEnv(render_mode='image-cl', folder='main', reward_type=None)
+	env = lib.gymchess.ChessEnv(render_mode='image-cl', folder='main', reward_type='Simple')
 	
 	dnn_model = load_model('ChessDNN.h5')
 	dnn_agent = dnn.ChessAgent(dnn_model, env, env.observation_space['board'].n + env.observation_space['player'].n)
@@ -75,6 +75,7 @@ def test_dnn():
 		pred_to = None
 
 		move, pred_from, pred_to = dnn_agent.get_move(state)
+
 		next_state, reward, terminated, truncated, info = env.step(move, pred_from=pred_from, pred_to=pred_to)
 
 		env.render()
@@ -88,18 +89,22 @@ def main():
 	'''
 		Temporary testing.
 	'''
-	env = lib.gymchess.ChessEnv(render_mode='image-cl', folder='main', reward_type=None)
-	
+	env = lib.gymchess.ChessEnv(render_mode='image-cl', folder='main', reward_type='Simple')
+	states = env.observation_space['board'].n + env.observation_space['player'].n
+
 	dnn_model = load_model('ChessDNN.h5')
-	dnn_agent = dnn.ChessAgent(dnn_model, env)
+	dnn_agent = dnn.ChessAgent(dnn_model, env, states)
 
 	dnc_model = torch.load('ChessDNC.pth.tar')
-	dnc_agent = dnc.ChessAgent(dnc_model, env)
+	dnc_agent = dnc.ChessAgent(dnc_model, env, states)
 
 	state = env.reset()
 
 	terminated = False
 	white = True
+
+	white_reward = 0
+	black_reward = 0
 
 	while not bool(terminated):
 		move = None
@@ -107,16 +112,20 @@ def main():
 		pred_to = None
 
 		if white:
-			move, pred_from, pred_to = dnn_agent.get_move(state)
-		else:
 			move, pred_from, pred_to = dnc_agent.get_move(state)
-
-		white = not white
+		else:
+			move, pred_from, pred_to = dnn_agent.get_move(state)
 
 		next_state, reward, terminated, truncated, info = env.step(move, pred_from=pred_from, pred_to=pred_to)
 
-		print(terminated)
-		print(info)
+		if white and reward != 0:
+			white_reward += reward
+			print(f'White got a reward of {reward}, total of {white_reward}')
+		elif reward != 0:
+			black_reward += reward
+			print(f'Black got a reward of {reward}, total of {black_reward}')
+
+		white = not white
 
 		env.render()
 
@@ -124,6 +133,57 @@ def main():
 		
 	env.render()
 
+def test_dnc():
+	'''
+		Temporary testing.
+	'''
+	env = lib.gymchess.ChessEnv(render_mode='image-cl', folder='main', reward_type='Simple')
+	states = env.observation_space['board'].n + env.observation_space['player'].n
+
+	dnc_model1 = torch.load('ChessDNC.pth.tar')
+	dnc_agent1 = dnc.ChessAgent(dnc_model1, env, states)
+
+	dnc_model2 = torch.load('ChessDNC.pth.tar')
+	dnc_agent2 = dnc.ChessAgent(dnc_model2, env, states)
+
+	state = env.reset()
+
+	terminated = False
+	white = True
+
+	white_reward = 0
+	black_reward = 0
+
+	while not bool(terminated):
+		move = None
+		pred_from = None
+		pred_to = None
+
+		if white:
+			move, pred_from, pred_to = dnc_agent1.get_move(state)
+		else:
+			move, pred_from, pred_to = dnc_agent2.get_move(state)
+
+		white = not white
+
+		next_state, reward, terminated, truncated, info = env.step(move, pred_from=pred_from, pred_to=pred_to)
+
+		if white and reward != 0:
+			white_reward += reward
+			print(f'White got a reward of {reward}, total of {white_reward}')
+		elif reward != 0:
+			black_reward += reward
+			print(f'Black got a reward of {reward}, total of {black_reward}')
+
+		env.render()
+
+		state = next_state
+		
+	env.render()
+
+	print(f'Done with outcome {terminated}')
+
 if __name__ == '__main__':
-	test_dnn()
-	#main()
+	#test_dnn()
+	#test_dnc()
+	main()

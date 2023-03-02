@@ -22,7 +22,7 @@ from pandas.core.common import flatten
 import sys
 
 SAMPLING = 100
-EPISODES = 5_000
+EPISODES = 1_000
 EPISODE_TIME = deque(maxlen = EPISODES // max(SAMPLING // 100, 1))
 
 def build_dnn_old(states, actions):
@@ -367,7 +367,8 @@ def train_dnn_db(optimizer, loss, name):
 	states = env.observation_space['board'].n + env.observation_space['player'].n
 	actions = env.action_space.n
 
-	model = build_dnn_dynamic(states, actions, optimizer, loss)
+	#model = build_dnn_dynamic(states, actions, optimizer, loss)
+	model = load_model('ChessDNN.h5')
 
 	df = pd.read_csv('games.csv')
 
@@ -431,6 +432,6 @@ if __name__ == '__main__':
 	name = 'ChessDNN'
 
 	train_dnn_db(optimizer, loss, name)
-	train_dnn(optimizer, loss, name)
+	#train_dnn(optimizer, loss, name)
 
 	#test_dnn_types(['ChessDNN_nonrl', 'ChessDNN_nonrl_001', 'ChessDNN_nonrl_0001'])
